@@ -1,0 +1,23 @@
+{
+  "name": "tabula_infovis",
+  "version": "1.0.0",
+  "description": "infovis tools based on d3js and c3js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tabulaco/tabula_infovis.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tabulaco/tabula_infovis/issues"
+  },
+  "homepage": "https://github.com/tabulaco/tabula_infovis#readme",
+  "dependencies": {
+    "c3": "^0.4.11",
+    "d3": "^4.2.3"
+  }
+}
