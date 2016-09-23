@@ -18,6 +18,7 @@
   "homepage": "https://github.com/tabulaco/tabula_infovis#readme",
   "dependencies": {
     "c3": "^0.4.11",
+    "colorbrewer": "^1.0.0",
     "d3": "^4.2.3"
   }
 }
