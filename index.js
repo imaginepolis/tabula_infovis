@@ -288,7 +288,104 @@ HierarchicalBarchart.prototype.removeData = function(dataTitle)
 	});
 }
 
+var DayHourHeatMap = function()
+{
+	this.margin =  { top: 50, right: 0, bottom: 100, left: 30 };
+	this.width = 960 - this.margin.left - this.margin.right;
+	this.height = 430 - this.margin.top - this.margin.bottom;
+	this.gridSize = Math.floor(this.width / 24);
+	this.legendElementWidth = this.gridSize*2;
+	this.buckets = 9;
+    this.colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"]; // alternatively colorbrewer.YlGnBu[9]
+    this.days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    this.times = ["1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12p"];
+    this.svg = null;
+}
+
+DayHourHeatMap.prototype.setData = function(data)
+{
+	var _this = this;
+	var colorScale = d3.scale.quantile()
+		.domain([0, _this.buckets - 1, d3.max(data, function (d) { return d.value; })])
+		.range(_this.colors);
+	var cards = this.svg.selectAll(".hour")
+		.data(data, function(d) {return d.day+':'+d.hour;});
+
+	cards.append("title");
+
+	cards.enter().append("rect")
+		.attr("x", function(d) { return (d.hour - 1) * _this.gridSize; })
+		.attr("y", function(d) { return (d.day - 1) * _this.gridSize; })
+		.attr("rx", 4)
+		.attr("ry", 4)
+		.attr("class", "hour bordered")
+		.attr("width", _this.gridSize)
+		.attr("height", _this.gridSize)
+		.style("fill", _this.colors[0]);
+
+	cards.transition().duration(1000)
+		.style("fill", function(d) { return colorScale(d.value); });
+
+	cards.select("title").text(function(d) { return d.value; });
+
+	cards.exit().remove();
+
+	var legend = _this.svg.selectAll(".legend")
+		.data([0].concat(colorScale.quantiles()), function(d) { return d; });
+
+	legend.enter().append("g")
+		.attr("class", "legend");
+
+	legend.append("rect")
+		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
+		.attr("y", _this.height)
+		.attr("width", _this.legendElementWidth)
+		.attr("height", _this.gridSize / 2)
+		.style("fill", function(d, i) { return _this.colors[i]; });
+
+	legend.append("text")
+		.attr("class", "mono")
+		.text(function(d) { return "≥ " + Math.round(d); })
+		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
+		.attr("y", _this.height + _this.gridSize);
+
+	legend.exit().remove();
+}
+
+DayHourHeatMap.prototype.init = function(div_id)
+{
+	var _this = this;
+	this.svg = d3.select(div_id).append("svg")
+		.attr("width", _this.width + _this.margin.left + _this.margin.right)
+		.attr("height", _this.height + _this.margin.top + _this.margin.bottom)
+		.append("g")
+		.attr("transform", "translate(" + _this.margin.left + "," + _this.margin.top + ")");
+
+	var dayLabels = this.svg.selectAll(".dayLabel")
+		.data(_this.days)
+		.enter().append("text")
+		.text(function (d) { return d; })
+		.attr("x", 0)
+		.attr("y", function (d, i) { return i * _this.gridSize; })
+		.style("text-anchor", "end")
+		.attr("transform", "translate(-6," + _this.gridSize / 1.5 + ")")
+		.attr("class", function (d, i) { return ((i >= 0 && i <= 4) ? "dayLabel mono axis axis-workweek" : "dayLabel mono axis"); });
+
+	var timeLabels = this.svg.selectAll(".timeLabel")
+		.data(_this.times)
+		.enter().append("text")
+		.text(function(d) { return d; })
+		.attr("x", function(d, i) { return i * _this.gridSize; })
+		.attr("y", 0)
+		.style("text-anchor", "middle")
+		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
+		.attr("class", function(d, i) { return ((i >= 7 && i <= 16) ? "timeLabel mono axis axis-worktime" : "timeLabel mono axis"); });
+}
+
+
+
 module.exports = {
 	HierarchicalBarchart : HierarchicalBarchart,
-	Breadcrumb : Breadcrumb
+	Breadcrumb : Breadcrumb,
+	DayHourHeatMap : DayHourHeatMap
 }
