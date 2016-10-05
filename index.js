@@ -305,7 +305,7 @@ var DayHourHeatMap = function()
 DayHourHeatMap.prototype.setData = function(data)
 {
 	var _this = this;
-	var colorScale = d3.scale.quantile()
+	var colorScale = d3.scaleQuantile()
 		.domain([0, _this.buckets - 1, d3.max(data, function (d) { return d.value; })])
 		.range(_this.colors);
 	var cards = this.svg.selectAll(".hour")
