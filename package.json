@@ -10,12 +10,21 @@
     "type": "git",
     "url": "git+https://github.com/tabulaco/tabula_infovis.git"
   },
-  "author": "",
+  "author": "Juan Camilo Ibarra",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/tabulaco/tabula_infovis/issues"
   },
   "homepage": "https://github.com/tabulaco/tabula_infovis#readme",
+   "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-sourcemaps": "^1.6.0",
+    "gulp-util": "^3.0.7",
+    "run-sequence": "^1.1.5",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-transform": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+  },
   "dependencies": {
     "c3": "^0.4.11",
     "colorbrewer": "^1.0.0",
