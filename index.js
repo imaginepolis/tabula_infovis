@@ -9,11 +9,14 @@
  */
 
 
-
 var c3 = require('c3');
 var d3 = require('d3');
 var colorbrewer = require('colorbrewer');
 
+
+//******************************************************
+// Breadcrumbs
+//******************************************************
 
 var createBreadcrumbPoints = function(d, i) {
 	var b = d.b;
@@ -30,8 +33,8 @@ var createBreadcrumbPoints = function(d, i) {
 }
 
 var updateBreadcrumbs = function(_this){
-	d3.selectAll("#trail").selectAll("*").remove();
-	var g = d3.select("#trail")
+	d3.selectAll("#trail_" + _this.bc_name).selectAll("*").remove();
+	var g = d3.select("#trail_" + _this.bc_name)
 		.selectAll("g")
 		.data(_this.breadcrumbs, function(d) { return d.name + d.depth; });
 	
@@ -41,18 +44,21 @@ var updateBreadcrumbs = function(_this){
     		return "translate(" + i * (_this.b.w + _this.b.s) + ", 0)";
 		})
 		.on("mouseover", function(d,i){
-			d3.selectAll(".trail_polygon")
+			d3.selectAll(".trail_polygon_" + _this.bc_name)
 				.style("opacity", 0.5);
 			d3.select("#trail_polygon_" + i)
 				.style("opacity", 1.0);
 		})
 		.on("mouseout", function(d,i){
-			d3.selectAll(".trail_polygon")
+			d3.selectAll(".trail_polygon_" + _this.bc_name)
 				.style("opacity", 1.0);
 		})
 		.on("click", function(d,i){
-			_this.breadcrumbs = _this.breadcrumbs.slice(0,i+1);
-			updateBreadcrumbs(_this);
+			if(_this.enable)
+			{
+				_this.breadcrumbs = _this.breadcrumbs.slice(0,i+1);
+				updateBreadcrumbs(_this);	
+			}
 			if(_this.removeCallback)
 				_this.removeCallback(d,i);
 		});
@@ -60,7 +66,7 @@ var updateBreadcrumbs = function(_this){
 		.attr("points", createBreadcrumbPoints)
 		.attr("class", "trail_polygon")
 		.attr("id", function(d, i) { 
-			return "trail_polygon_" + i;
+			return "trail_polygon_" + i + "_" + _this.bc_name;
 		})
 		.style("fill", function(d, i) { return _this.colorMap[i]; });
 		
@@ -77,12 +83,14 @@ var updateBreadcrumbs = function(_this){
 
 var Breadcrumb = function(){
 	this.div;
+	this.bc_name;
 	// Breadcrumb dimensions: width, height, spacing, width of tip/tail.
 	this.b = { w: 75, h: 30, s: 3, t: 10};
 	this.breadcrumbs = [];
 	this.colorMap = [];
 	this.colorScale = colorbrewer.Blues; 
 	this.removeCallback;
+	this.enable = true;
 };
 
 Breadcrumb.prototype.subscribeRemoveCallback = function(func)
@@ -92,12 +100,14 @@ Breadcrumb.prototype.subscribeRemoveCallback = function(func)
 
 Breadcrumb.prototype.init = function(div)
 {
+	var _this = this;
+	this.bc_name = div.replace("#","_");
 	this.div = d3.select(div).append('div');
-	this.div.attr("id", "breadcrumb_div");
-	var trail = d3.select("#breadcrumb_div").append("svg:svg")
+	this.div.attr("id", "breadcrumb_div_" + _this.bc_name);
+	var trail = d3.select("#breadcrumb_div_" + _this.bc_name).append("svg:svg")
 		.attr("width", 750)
 		.attr("height", 50)
-		.attr("id", "trail");
+		.attr("id", "trail_" + _this.bc_name);
 }
 
 Breadcrumb.prototype.addBreadcrumb = function(new_breadcrumb)
@@ -114,6 +124,10 @@ Breadcrumb.prototype.removeBreadcrumb = function()
 	updateBreadcrumbs(this);
 }
 
+
+//******************************************************
+// Hierarchical Barchart
+//******************************************************
 
 var callLevelFunction = function(_this, index)
 {
@@ -287,6 +301,10 @@ HierarchicalBarchart.prototype.removeData = function(dataTitle)
 		ids : [dataTitle]
 	});
 }
+
+//******************************************************
+// Day/Hour Heatmap
+//******************************************************
 
 var DayHourHeatMap = function()
 {
