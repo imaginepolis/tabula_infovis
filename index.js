@@ -300,14 +300,18 @@ var DayHourHeatMap = function()
     this.days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     this.times = ["1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12p"];
     this.svg = null;
+
+    this.colorScale = null;
+    this.legendData = null;
+    this.tooltip_div = null;
 }
 
 DayHourHeatMap.prototype.setData = function(data)
 {
 	var _this = this;
-	var colorScale = d3.scaleQuantile()
-		.domain([0, _this.buckets - 1, d3.max(data, function (d) { return d.value; })])
-		.range(_this.colors);
+	// var colorScale = d3.scaleQuantile()
+	// 	.domain([0, _this.buckets - 1, d3.max(data, function (d) { return d.value; })])
+	// 	.range(_this.colors);
 	var cards = this.svg.selectAll(".hour")
 		.data(data, function(d) {return d.day+':'+d.hour;});
 
@@ -321,29 +325,43 @@ DayHourHeatMap.prototype.setData = function(data)
 		.attr("class", "hour bordered")
 		.attr("width", _this.gridSize)
 		.attr("height", _this.gridSize)
-		.style("fill", _this.colors[0]);
+		.style("fill", function(d) { return _this.colorScale(d.value); })
+		.on("mouseover", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            _this.tooltip_div.html(_this.days[d.day -1] + " " + _this.times[d.hour - 1] + "<br/>"  + d.value)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            })					
+        .on("mouseout", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(500)		
+                .style("opacity", 0);	
+        });
 
 	cards.transition().duration(1000)
-		.style("fill", function(d) { return colorScale(d.value); });
+		.style("fill", function(d) { return _this.colorScale(d.value); });
 
 	cards.select("title").text(function(d) { return d.value; });
 
 	cards.exit().remove();
 
 	var legend = _this.svg.selectAll(".legend")
-		.data([0].concat(colorScale.quantiles()), function(d) { return d; });
+		//.data([0].concat(_this.colorScale.quantiles()), function(d) { return d; });
+		.data(_this.legendData);
 
 	legend.enter().append("g")
 		.attr("class", "legend");
 
-	legend.append("rect")
+	legend.enter().append("rect")
 		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
 		.attr("y", _this.height)
 		.attr("width", _this.legendElementWidth)
 		.attr("height", _this.gridSize / 2)
 		.style("fill", function(d, i) { return _this.colors[i]; });
 
-	legend.append("text")
+	legend.enter().append("text")
 		.attr("class", "mono")
 		.text(function(d) { return "≥ " + Math.round(d); })
 		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
@@ -380,8 +398,11 @@ DayHourHeatMap.prototype.init = function(div_id)
 		.style("text-anchor", "middle")
 		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
 		.attr("class", function(d, i) { return ((i >= 7 && i <= 16) ? "timeLabel mono axis axis-worktime" : "timeLabel mono axis"); });
-}
 
+	_this.tooltip_div = d3.select("body").append("div")	
+		.attr("class", "tooltip")				
+		.style("opacity", 0);
+}
 
 
 module.exports = {
