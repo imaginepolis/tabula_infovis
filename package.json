@@ -1,6 +1,6 @@
 {
   "name": "tabula_infovis",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "infovis tools based on d3js and c3js",
   "main": "index.js",
   "scripts": {
