@@ -423,8 +423,143 @@ DayHourHeatMap.prototype.init = function(div_id)
 }
 
 
+//******************************************************
+// General Heatmap
+//******************************************************
+
+var CardHeatMap = function(params)
+{
+	this.div_id = params.bindto;
+	this.div = d3.select(this.div_id);
+	this.margin =  { top: 50, right: 0, bottom: 100, left: 30 };
+	this.bbox = this.div.node().getBoundingClientRect();
+	if(this.bbox.width == undefined && this.bbox.height == undefined)
+		console.log("Div must have width and height")
+	else
+	{
+		this.width = this.bbox.width - this.margin.left - this.margin.right;
+		this.height = this.bbox.height - this.margin.top - this.margin.bottom;
+	}
+	
+	this.gridSize = 0;
+	this.legendElementWidth = Math.floor(this.width / 9);
+	this.buckets = 9;
+    this.colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"]; // alternatively colorbrewer.YlGnBu[9]
+    this.days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    this.times = ["1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12p"];
+    this.svg = null;
+
+    this.axis = {
+    	x : params.axis ? (params.axis.x ? params.axis.x : null) : null,
+    	y : params.axis ? (params.axis.y ? params.axis.y : null) : null,
+    }
+
+    this.colorScale = null;
+    this.legendData = null;
+    this.tooltip_div = d3.select("body").append("div")	
+		.attr("class", "tooltip")				
+		.style("opacity", 0);;
+    var _this = this;
+    this.svg = d3.select(_this.div_id).append("svg")
+		.attr("width", _this.width + _this.margin.left + _this.margin.right)
+		.attr("height", _this.height + _this.margin.top + _this.margin.bottom)
+		.append("g")
+		.attr("transform", "translate(" + _this.margin.left + "," + _this.margin.top + ")");
+}
+
+CardHeatMap.prototype.setData = function(data)
+{
+	var _this = this;	
+	var cards = this.svg.selectAll(".hmdata")
+		//.data(data, function(d) {return d.y+':'+d.x;});
+		.data(data, function(d){ return _this.axis.y.indexOf(d.y) + ":" + _this.axis.x.indexOf(d.x);});
+
+	cards.append("title");
+	
+	var gridWidth = Math.floor(_this.width / _this.axis.x.length);
+	var gridHeight = Math.floor(_this.height / _this.axis.y.length);
+	var delta = (Math.abs(gridWidth - gridHeight) / 2);
+
+	_this.gridSize = Math.floor(d3.min([gridWidth, gridHeight]));
+
+	cards.enter().append("rect")
+		.attr("x", function(d) { 
+			return (_this.axis.x.indexOf(d.x)) * _this.gridSize; })
+		.attr("y", function(d) { 
+			return (_this.axis.y.indexOf(d.y)) * _this.gridSize; })
+		.attr("rx", 4)
+		.attr("ry", 4)
+		.attr("class", "hmdata bordered")
+		.attr("width", _this.gridSize)
+		.attr("height", _this.gridSize)
+		.style("fill", function(d) { return _this.colorScale(d.value); })
+		.on("mouseover", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            _this.tooltip_div.html(d.y + " " + d.x + "<br/>"  + d.value)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            })					
+        .on("mouseout", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(500)		
+                .style("opacity", 0);	
+        });
+
+	cards.transition().duration(1000)
+		.style("fill", function(d) { return _this.colorScale(d.value); });
+
+	// cards.select("title").text(function(d) { return d.value; });
+
+	cards.exit().remove();
+
+	var legend = _this.svg.selectAll(".legend")
+		//.data([0].concat(_this.colorScale.quantiles()), function(d) { return d; });
+		.data(_this.legendData);
+
+	legend.enter().append("g")
+		.attr("class", "legend");
+
+	legend.enter().append("rect")
+		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
+		.attr("y", _this.height)
+		.attr("width", _this.legendElementWidth)
+		.attr("height", 20)
+		.style("fill", function(d, i) { return _this.colors[i]; });
+
+	legend.enter().append("text")
+		.attr("class", "mono")
+		.text(function(d) { return "≥ " + Math.round(d); })
+		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
+		.attr("y", _this.height + 32);
+
+	legend.exit().remove();
+
+	this.svg.selectAll(".yLabel")
+		.data(_this.axis.y)
+		.enter().append("text")
+		.text(function (d) { return d; })
+		.attr("x", 0)
+		.attr("y", function (d, i) { return i * _this.gridSize; })
+		.style("text-anchor", "end")
+		.attr("transform", "translate(-6," + _this.gridSize / 1.5 + ")")
+		.attr("class", function (d, i) { return "dayLabel mono axis"; });
+
+	this.svg.selectAll(".xLabel")
+		.data(_this.axis.x)
+		.enter().append("text")
+		.text(function(d) { return d; })
+		.attr("x", function(d, i) { return i * _this.gridSize; })
+		.attr("y", 0)
+		.style("text-anchor", "middle")
+		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
+		.attr("class", function(d, i) { return "timeLabel mono axis"; });
+}
+
 module.exports = {
 	HierarchicalBarchart : HierarchicalBarchart,
 	Breadcrumb : Breadcrumb,
-	DayHourHeatMap : DayHourHeatMap
+	DayHourHeatMap : DayHourHeatMap,
+	CardHeatMap : CardHeatMap,
 }
