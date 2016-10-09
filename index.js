@@ -424,7 +424,7 @@ DayHourHeatMap.prototype.init = function(div_id)
 
 
 //******************************************************
-// General Heatmap
+// Card Heatmap
 //******************************************************
 
 var CardHeatMap = function(params)
@@ -444,9 +444,7 @@ var CardHeatMap = function(params)
 	this.gridSize = 0;
 	this.legendElementWidth = Math.floor(this.width / 9);
 	this.buckets = 9;
-    this.colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"]; // alternatively colorbrewer.YlGnBu[9]
-    this.days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-    this.times = ["1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12p"];
+    this.colors = null
     this.svg = null;
 
     this.axis = {
@@ -470,91 +468,95 @@ var CardHeatMap = function(params)
 CardHeatMap.prototype.setData = function(data)
 {
 	var _this = this;	
+	d3.select(_this.div_id).selectAll(".hmdata").remove();
 	var cards = this.svg.selectAll(".hmdata")
-		//.data(data, function(d) {return d.y+':'+d.x;});
 		.data(data, function(d){ return _this.axis.y.indexOf(d.y) + ":" + _this.axis.x.indexOf(d.x);});
-
-	cards.append("title");
-	
 	var gridWidth = Math.floor(_this.width / _this.axis.x.length);
 	var gridHeight = Math.floor(_this.height / _this.axis.y.length);
 	var delta = (Math.abs(gridWidth - gridHeight) / 2);
 
 	_this.gridSize = Math.floor(d3.min([gridWidth, gridHeight]));
 
-	cards.enter().append("rect")
-		.attr("x", function(d) { 
+	var cards_group = cards.enter().append("g")
+		.attr("class", "hmdata");
+	var rectcard = cards_group.append("rect");
+	rectcard.attr("x", function(d) { 
 			return (_this.axis.x.indexOf(d.x)) * _this.gridSize; })
 		.attr("y", function(d) { 
 			return (_this.axis.y.indexOf(d.y)) * _this.gridSize; })
 		.attr("rx", 4)
 		.attr("ry", 4)
-		.attr("class", "hmdata bordered")
+		.attr("class", "hmdata uns_bordered")
 		.attr("width", _this.gridSize)
 		.attr("height", _this.gridSize)
 		.style("fill", function(d) { return _this.colorScale(d.value); })
-		.on("mouseover", function(d) {		
+	rectcard.on("mouseover", function(d) {		
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
             _this.tooltip_div.html(d.y + " " + d.x + "<br/>"  + d.value)	
                 .style("left", (d3.event.pageX) + "px")		
                 .style("top", (d3.event.pageY - 28) + "px");	
-            })					
+            })
+            //d3.select(this).classed("sel_bordered", true)				
         .on("mouseout", function(d) {		
             _this.tooltip_div.transition()		
                 .duration(500)		
                 .style("opacity", 0);	
+            // d3.select(this).classed("uns_bordered", true)	
         });
-
-	cards.transition().duration(1000)
-		.style("fill", function(d) { return _this.colorScale(d.value); });
-
-	// cards.select("title").text(function(d) { return d.value; });
 
 	cards.exit().remove();
 
 	var legend = _this.svg.selectAll(".legend")
-		//.data([0].concat(_this.colorScale.quantiles()), function(d) { return d; });
-		.data(_this.legendData);
+		.data(_this.legendData, function(d){return d;});
 
-	legend.enter().append("g")
+	var legend_group = legend.enter().append("g")
 		.attr("class", "legend");
-
-	legend.enter().append("rect")
+	legend_group.append("rect")
 		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
 		.attr("y", _this.height)
 		.attr("width", _this.legendElementWidth)
 		.attr("height", 20)
-		.style("fill", function(d, i) { return _this.colors[i]; });
-
-	legend.enter().append("text")
+		.style("fill", function(d, i) { return _this.colors[i]; })
+	legend_group.append("text")
 		.attr("class", "mono")
-		.text(function(d) { return "≥ " + Math.round(d); })
-		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
+		.text(function(d) { 
+			return "≥ " + Math.round(d); 
+		})
+		.attr("x", function(d, i) { 
+			return _this.legendElementWidth * i; 
+		})
 		.attr("y", _this.height + 32);
-
 	legend.exit().remove();
 
-	this.svg.selectAll(".yLabel")
-		.data(_this.axis.y)
-		.enter().append("text")
+	d3.select(_this.div_id).selectAll(".xlabel").remove();
+	var axis_x_labels = this.svg.selectAll(".xLabel")
+		.data(_this.axis.x, function(d) { return d;})
+	var axis_x_group = axis_x_labels.enter().append("g")
+		.attr("class", "xlabel");
+	axis_x_group.append("text")
+		.text(function (d) { return d; })
+		.attr("x", function(d, i) { return i * _this.gridSize; })
+		.attr("y", 0)
+		.style("text-anchor", "middle")
+		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
+		.attr("class", function(d, i) { return "timeLabel mono axis"; });
+	axis_x_labels.exit().remove();
+
+	d3.select(_this.div_id).selectAll(".ylabel").remove();
+	var axis_y_labels = this.svg.selectAll(".yLabel")
+		.data(_this.axis.y, function(d) { return d;})
+	var axis_y_group = axis_y_labels.enter().append("g")
+		.attr("class", "yLabel")
+	axis_y_group.append("text")
 		.text(function (d) { return d; })
 		.attr("x", 0)
 		.attr("y", function (d, i) { return i * _this.gridSize; })
 		.style("text-anchor", "end")
 		.attr("transform", "translate(-6," + _this.gridSize / 1.5 + ")")
 		.attr("class", function (d, i) { return "dayLabel mono axis"; });
-
-	this.svg.selectAll(".xLabel")
-		.data(_this.axis.x)
-		.enter().append("text")
-		.text(function(d) { return d; })
-		.attr("x", function(d, i) { return i * _this.gridSize; })
-		.attr("y", 0)
-		.style("text-anchor", "middle")
-		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
-		.attr("class", function(d, i) { return "timeLabel mono axis"; });
+	axis_y_labels.exit().remove();
 }
 
 module.exports = {
