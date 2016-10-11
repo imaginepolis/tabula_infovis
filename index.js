@@ -431,7 +431,7 @@ var CardHeatMap = function(params)
 {
 	this.div_id = params.bindto;
 	this.div = d3.select(this.div_id);
-	this.margin =  { top: 50, right: 0, bottom: 100, left: 30 };
+	this.margin =  { top: 100, right: 0, bottom: 50, left: 50 };
 	this.bbox = this.div.node().getBoundingClientRect();
 	if(this.bbox.width == undefined && this.bbox.height == undefined)
 		console.log("Div must have width and height")
@@ -463,48 +463,65 @@ var CardHeatMap = function(params)
 		.attr("height", _this.height + _this.margin.top + _this.margin.bottom)
 		.append("g")
 		.attr("transform", "translate(" + _this.margin.left + "," + _this.margin.top + ")");
+
+	this.click_callback = null;
 }
 
 CardHeatMap.prototype.setData = function(data)
 {
 	var _this = this;	
-	d3.selectAll(".hmdata").remove();
+	d3.select(_this.div_id).selectAll(".hmdata").remove();
 	var cards = this.svg.selectAll(".hmdata")
 		.data(data, function(d){ return _this.axis.y.indexOf(d.y) + ":" + _this.axis.x.indexOf(d.x);});
+	
+
 	var gridWidth = Math.floor(_this.width / _this.axis.x.length);
 	var gridHeight = Math.floor(_this.height / _this.axis.y.length);
+
 	var delta = (Math.abs(gridWidth - gridHeight) / 2);
 
-	_this.gridSize = Math.floor(d3.min([gridWidth, gridHeight]));
+	_this.gridSize = d3.min([gridWidth, gridHeight]);
 
 	var cards_group = cards.enter().append("g")
 		.attr("class", "hmdata");
 	var rectcard = cards_group.append("rect");
-	rectcard.attr("x", function(d) { 
-			return (_this.axis.x.indexOf(d.x)) * _this.gridSize; })
+	rectcard.attr("x", function(d, i) { 
+			return ((_this.axis.x.indexOf(d.x)) * _this.gridSize); })
 		.attr("y", function(d) { 
 			return (_this.axis.y.indexOf(d.y)) * _this.gridSize; })
 		.attr("rx", 4)
 		.attr("ry", 4)
-		.attr("class", "hmdata uns_bordered")
+		.attr("class", function(d,i) {
+			return	"hmdata uns_bordered " + "x_" + d.x + " y_" + d.y
+		})
 		.attr("width", _this.gridSize)
 		.attr("height", _this.gridSize)
 		.style("fill", function(d) { return _this.colorScale(d.value); })
-	rectcard.on("mouseover", function(d) {		
+	rectcard
+		.on("mouseover", function(d) {		
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
             _this.tooltip_div.html(d.y + " " + d.x + "<br/>"  + d.value)	
                 .style("left", (d3.event.pageX) + "px")		
                 .style("top", (d3.event.pageY - 28) + "px");	
-            })
-            //d3.select(this).classed("sel_bordered", true)				
+            d3.select(this).classed("uns_bordered", false);
+            d3.select(this).classed("sel_bordered", true);
+        })				
         .on("mouseout", function(d) {		
             _this.tooltip_div.transition()		
                 .duration(500)		
                 .style("opacity", 0);	
-            // d3.select(this).classed("uns_bordered", true)	
-        });
+            d3.select(this).classed("uns_bordered", true)	
+            d3.select(this).classed("sel_bordered", false)
+        })
+        .on("click", function(d,i){
+	    	if(_this.click_callback)
+	    	{
+	    		_this.click_callback(d,i);
+	    	}
+        })
+        ;
 
 	cards.exit().remove();
 
@@ -515,24 +532,28 @@ CardHeatMap.prototype.setData = function(data)
 		.attr("class", "legend");
 	legend_group.append("rect")
 		.attr("x", function(d, i) { return _this.legendElementWidth * i; })
-		.attr("y", _this.height)
+		//.attr("y", _this.height)
+		.attr("y", -55)
 		.attr("width", _this.legendElementWidth)
-		.attr("height", 20)
+		.attr("height", 10)
+		.attr("stroke", "#E6E6E6")
+		.attr("stroke-width", 1)
 		.style("fill", function(d, i) { return _this.colors[i]; })
 	legend_group.append("text")
 		.attr("class", "mono")
 		.text(function(d) { 
-			return "≥ " + Math.round(d); 
+			return "≥ " + Math.floor(d); 
 		})
 		.attr("x", function(d, i) { 
 			return _this.legendElementWidth * i; 
 		})
-		.attr("y", _this.height + 32);
+		//.attr("y", _this.height + 32);
+		.attr("y", -32)		
 	legend.exit().remove();
 
-	d3.selectAll(".xlabel").remove();
+	d3.select(_this.div_id).selectAll(".xlabel").remove();
 	var axis_x_labels = this.svg.selectAll(".xLabel")
-		.data(_this.axis.x, function(d) { return d;})
+		.data(_this.axis.x, function(d, i) { return i + ":" + d;})
 	var axis_x_group = axis_x_labels.enter().append("g")
 		.attr("class", "xlabel");
 	axis_x_group.append("text")
@@ -541,12 +562,41 @@ CardHeatMap.prototype.setData = function(data)
 		.attr("y", 0)
 		.style("text-anchor", "middle")
 		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
-		.attr("class", function(d, i) { return "timeLabel mono axis"; });
+		.attr("class", function(d, i) { return "timeLabel mono axis"; })
+		.on("mouseover", function(d) {		
+            var value = 0;
+            for(i in data)
+            {
+            	var datum = data[i];
+            	if(datum.x == d)
+            		value += datum.value
+            }
+
+            _this.tooltip_div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            _this.tooltip_div.html(value)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            d3.select(_this.div_id).selectAll(".hmdata")
+           		.filter(function(datum,i){
+           			return datum.x == d ? null : this;
+           		})
+           		.style("fill", "#DCDCDC")
+        })				
+        .on("mouseout", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(500)		
+                .style("opacity", 0);
+            d3.select(_this.div_id).selectAll(".hmdata")
+				.style("fill", function(datum) { return _this.colorScale(datum.value); })
+            
+        })
 	axis_x_labels.exit().remove();
 
-	d3.selectAll(".ylabel").remove();
+	d3.select(_this.div_id).selectAll(".ylabel").remove();
 	var axis_y_labels = this.svg.selectAll(".yLabel")
-		.data(_this.axis.y, function(d) { return d;})
+		.data(_this.axis.y, function(d, i) { return i + ":" + d;})
 	var axis_y_group = axis_y_labels.enter().append("g")
 		.attr("class", "yLabel")
 	axis_y_group.append("text")
@@ -555,7 +605,37 @@ CardHeatMap.prototype.setData = function(data)
 		.attr("y", function (d, i) { return i * _this.gridSize; })
 		.style("text-anchor", "end")
 		.attr("transform", "translate(-6," + _this.gridSize / 1.5 + ")")
-		.attr("class", function (d, i) { return "dayLabel mono axis"; });
+		.attr("class", function (d, i) { return "dayLabel mono axis"; })
+		.on("mouseover", function(d) {		
+            var value = 0;
+            for(i in data)
+            {
+            	var datum = data[i];
+            	if(datum.y == d)
+            		value += datum.value
+            }
+
+            _this.tooltip_div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            _this.tooltip_div.html(value)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");
+
+            d3.select(_this.div_id).selectAll(".hmdata")
+           		.filter(function(datum,i){
+           			return datum.y == d ? null : this;
+           		})
+           		.style("fill", "#DCDCDC")
+
+        })				
+        .on("mouseout", function(d) {		
+            _this.tooltip_div.transition()		
+                .duration(500)		
+                .style("opacity", 0);
+            d3.select(_this.div_id).selectAll(".hmdata")
+            	.style("fill", function(datum) { return _this.colorScale(datum.value); })
+        })
 	axis_y_labels.exit().remove();
 }
 

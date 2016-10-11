@@ -9,7 +9,7 @@ rect.sel_bordered {
 }
 
 text.mono {
-  font-size: 9pt;
+  font-size: 8pt;
   font-family: Consolas, courier;
   fill: #aaa;
 }
