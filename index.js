@@ -482,6 +482,7 @@ CardHeatMap.prototype.setData = function(data)
 
 	_this.gridSize = d3.min([gridWidth, gridHeight]);
 
+
 	var cards_group = cards.enter().append("g")
 		.attr("class", "hmdata");
 	var rectcard = cards_group.append("rect");
@@ -502,9 +503,9 @@ CardHeatMap.prototype.setData = function(data)
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
-            _this.tooltip_div.html(d.y + " " + d.x + "<br/>"  + d.value)	
-                .style("left", (d3.event.pageX) + "px")		
-                .style("top", (d3.event.pageY - 28) + "px");	
+            _this.tooltip_div.html("x: " + d.x + " y: " + d.y + "<br/>v: "  + d.value)	
+                .style("left", (d3.event.pageX + (_this.gridSize / 2)) + "px")		
+                .style("top", (d3.event.pageY + (_this.gridSize / 2)) + "px");	
             d3.select(this).classed("uns_bordered", false);
             d3.select(this).classed("sel_bordered", true);
         })				
@@ -561,6 +562,9 @@ CardHeatMap.prototype.setData = function(data)
 		.attr("x", function(d, i) { return i * _this.gridSize; })
 		.attr("y", 0)
 		.style("text-anchor", "middle")
+		.style("font-size", function(d){
+			return _this.gridSize < 12 ? "6pt" : "9pt";
+		})
 		.attr("transform", "translate(" + _this.gridSize / 2 + ", -6)")
 		.attr("class", function(d, i) { return "timeLabel mono axis"; })
 		.on("mouseover", function(d) {		
@@ -575,14 +579,19 @@ CardHeatMap.prototype.setData = function(data)
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
-            _this.tooltip_div.html(value)	
-                .style("left", (d3.event.pageX) + "px")		
-                .style("top", (d3.event.pageY - 28) + "px");	
+            _this.tooltip_div.html("t: " + value)	
+                .style("left", (d3.event.pageX + _this.gridSize) +"px")		
+                .style("top", (d3.event.pageY + 20 ) + "px");	
             d3.select(_this.div_id).selectAll(".hmdata")
            		.filter(function(datum,i){
            			return datum.x == d ? null : this;
            		})
            		.style("fill", "#DCDCDC")
+           	d3.select(this)
+	           	.style("font-size", "9pt")
+				.style("cursor", "none")
+				.style("fill", "#000")
+				.style("font-weight", "bold")
         })				
         .on("mouseout", function(d) {		
             _this.tooltip_div.transition()		
@@ -590,6 +599,13 @@ CardHeatMap.prototype.setData = function(data)
                 .style("opacity", 0);
             d3.select(_this.div_id).selectAll(".hmdata")
 				.style("fill", function(datum) { return _this.colorScale(datum.value); })
+			d3.select(this)
+	           	.style("font-size", function(d){
+					return _this.gridSize < 12 ? "6pt" : "9pt";
+				})
+				.style("cursor", "none")
+				.style("fill", "#aaa")
+				.style("font-weight", "normal")
             
         })
 	axis_x_labels.exit().remove();
@@ -618,15 +634,20 @@ CardHeatMap.prototype.setData = function(data)
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
-            _this.tooltip_div.html(value)	
-                .style("left", (d3.event.pageX) + "px")		
-                .style("top", (d3.event.pageY - 28) + "px");
+            _this.tooltip_div.html("t: " + value)	
+                .style("left", (d3.event.pageX + 20) + "px")		
+                .style("top", (d3.event.pageY + _this.gridSize) + "px");
 
             d3.select(_this.div_id).selectAll(".hmdata")
            		.filter(function(datum,i){
            			return datum.y == d ? null : this;
            		})
            		.style("fill", "#DCDCDC")
+           	d3.select(this)
+	           	.style("font-size", "9pt")
+				.style("cursor", "none")
+				.style("fill", "#000")
+				.style("font-weight", "bold")
 
         })				
         .on("mouseout", function(d) {		
@@ -635,10 +656,16 @@ CardHeatMap.prototype.setData = function(data)
                 .style("opacity", 0);
             d3.select(_this.div_id).selectAll(".hmdata")
             	.style("fill", function(datum) { return _this.colorScale(datum.value); })
+            d3.select(this)
+	           	.style("font-size", function(d){
+					return _this.gridSize < 12 ? "6pt" : "9pt";
+				})
+				.style("cursor", "none")
+				.style("fill", "#aaa")
+				.style("font-weight", "normal")
         })
 	axis_y_labels.exit().remove();
 }
-
 module.exports = {
 	HierarchicalBarchart : HierarchicalBarchart,
 	Breadcrumb : Breadcrumb,
