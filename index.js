@@ -465,6 +465,8 @@ var CardHeatMap = function(params)
 		.attr("transform", "translate(" + _this.margin.left + "," + _this.margin.top + ")");
 
 	this.click_callback = null;
+
+	this.tooltip_format = null;
 }
 
 CardHeatMap.prototype.setData = function(data)
@@ -499,11 +501,21 @@ CardHeatMap.prototype.setData = function(data)
 		.attr("height", _this.gridSize)
 		.style("fill", function(d) { return _this.colorScale(d.value); })
 	rectcard
-		.on("mouseover", function(d) {		
+		.on("mouseover", function(d) {
+			var tooltip_text = "";
+			if(_this.tooltip_format)
+			{
+				tooltip_text = _this.tooltip_format(d);
+			}
+			else
+			{
+				tooltip_text = "x: " + d.x + " y: " + d.y + "<br/>v: "  + d.value;
+			}
+
             _this.tooltip_div.transition()		
                 .duration(200)		
                 .style("opacity", .9);		
-            _this.tooltip_div.html("x: " + d.x + " y: " + d.y + "<br/>v: "  + d.value)	
+            _this.tooltip_div.html(tooltip_text)	
                 .style("left", (d3.event.pageX + (_this.gridSize / 2)) + "px")		
                 .style("top", (d3.event.pageY + (_this.gridSize / 2)) + "px");	
             d3.select(this).classed("uns_bordered", false);
@@ -666,6 +678,10 @@ CardHeatMap.prototype.setData = function(data)
         })
 	axis_y_labels.exit().remove();
 }
+
+
+
+
 module.exports = {
 	HierarchicalBarchart : HierarchicalBarchart,
 	Breadcrumb : Breadcrumb,

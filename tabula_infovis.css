@@ -9,7 +9,7 @@ rect.sel_bordered {
 }
 
 text.mono {
-  font-size: 8pt;
+  font-size: 9pt;
   font-family: Consolas, courier;
   fill: #aaa;
 }
@@ -17,7 +17,7 @@ text.mono {
 div.tooltip { 
     position: absolute;     
     text-align: center;     
-    display : inline-block;        
+    display : inline-block;  
     padding: 8px;       
     font: 12px sans-serif;    
     background: lightsteelblue; 
