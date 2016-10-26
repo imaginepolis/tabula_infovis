@@ -15,6 +15,63 @@ var colorbrewer = require('colorbrewer');
 
 
 //******************************************************
+// Selection Manager
+//******************************************************
+
+var SelectionManager = function(params)
+{
+	this.selected = null;
+	this.multiple = false;
+	this.comparison_function = null;
+
+	if(params)
+	{
+		this.multiple = params.multiple ? params.multiple : false;
+		this.comparison_function = params.comparison_function ? params.comparison_function : false;
+	}
+}
+
+SelectionManager.prototype.click = function(d)
+{
+	if(this.multiple)
+	{
+
+	}
+	else
+	{
+		if(this.selected == null)
+		{
+			this.selected = d;		
+		}
+		else
+		{
+			if(this.comparison_function(this.selected, d))
+			{
+				this.selected = null;
+			}
+			else
+			{
+
+			}
+		}
+	}
+	
+}
+
+SelectionManager.prototype.isSelected = function()
+{
+	if(this.selected == null)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+
+//******************************************************
 // Breadcrumbs
 //******************************************************
 
@@ -467,6 +524,15 @@ var CardHeatMap = function(params)
 	this.click_callback = null;
 
 	this.tooltip_format = null;
+
+	this.selectionManager = new SelectionManager({
+		comparison_function : function(d, e){
+			if(d.x == e.x && d.y == e.y)
+				return true;
+			else
+				return false;
+		}
+	});
 }
 
 CardHeatMap.prototype.setData = function(data)
@@ -502,37 +568,46 @@ CardHeatMap.prototype.setData = function(data)
 		.style("fill", function(d) { return _this.colorScale(d.value); })
 	rectcard
 		.on("mouseover", function(d) {
-			var tooltip_text = "";
-			if(_this.tooltip_format)
+			if(!_this.selectionManager.isSelected()) 
 			{
-				tooltip_text = _this.tooltip_format(d);
-			}
-			else
-			{
-				tooltip_text = "x: " + d.x + " y: " + d.y + "<br/>v: "  + d.value;
-			}
+				d3.select(this).classed("uns_bordered", false);
+	            d3.select(this).classed("sel_bordered", true);
+	        }
+				var tooltip_text = "";
+				if(_this.tooltip_format)
+				{
+					tooltip_text = _this.tooltip_format(d);
+				}
+				else
+				{
+					tooltip_text = "x: " + d.x + " y: " + d.y + "<br/>v: "  + d.value;
+				}
 
-            _this.tooltip_div.transition()		
-                .duration(200)		
-                .style("opacity", .9);		
-            _this.tooltip_div.html(tooltip_text)	
-                .style("left", (d3.event.pageX + (_this.gridSize / 2)) + "px")		
-                .style("top", (d3.event.pageY + (_this.gridSize / 2)) + "px");	
-            d3.select(this).classed("uns_bordered", false);
-            d3.select(this).classed("sel_bordered", true);
+	            _this.tooltip_div.transition()		
+	                .duration(200)		
+	                .style("opacity", .9);		
+	            _this.tooltip_div.html(tooltip_text)	
+	                .style("left", (d3.event.pageX + (_this.gridSize / 2)) + "px")		
+	                .style("top", (d3.event.pageY + (_this.gridSize / 2)) + "px");	
         })				
-        .on("mouseout", function(d) {		
-            _this.tooltip_div.transition()		
+        .on("mouseout", function(d) {
+        	if(!_this.selectionManager.isSelected())
+        	{
+    	        d3.select(this).classed("uns_bordered", true)	
+	            d3.select(this).classed("sel_bordered", false)		
+         	}		
+     		_this.tooltip_div.transition()		
                 .duration(500)		
                 .style("opacity", 0);	
-            d3.select(this).classed("uns_bordered", true)	
-            d3.select(this).classed("sel_bordered", false)
+	        
         })
         .on("click", function(d,i){
-	    	if(_this.click_callback)
+        	_this.selectionManager.click(d);
+	    	if(_this.click_callback && _this.selectionManager.isSelected())
 	    	{
 	    		_this.click_callback(d,i);
 	    	}
+	    	
         })
         ;
 
@@ -679,7 +754,182 @@ CardHeatMap.prototype.setData = function(data)
 	axis_y_labels.exit().remove();
 }
 
+//******************************************************
+// Boxplot
+//******************************************************
 
+var Boxplot = function(params)
+{
+	this.div_id = params.bindto;
+	this.width = 960;
+	this.height = 500;
+
+	if(params)
+	{
+		this.width = params.width ? params.width : 960;
+		this.height = params.height ? params.height : 500;
+	}
+	
+	this.margin = {top: 20, right: 20, bottom: 30, left: 40};
+    
+	this.svg = d3.select(this.div_id).append("svg")
+    	.attr("width", this.width + this.margin.left + this.margin.right)
+		.attr("height", this.height + this.margin.top + this.margin.bottom)
+	this.g = this.svg.append("g")
+		.attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
+
+    this.x_axis = d3.scaleBand().rangeRound([0, this.width]).padding(0.1);
+    this.y_axis = d3.scaleLinear().rangeRound([this.height, 0]);
+}
+
+Boxplot.prototype.setData = function(data)
+{
+	var _this = this;
+	var domain_data = Object.keys(data);
+	var array_data = [];
+	var outliers = [];
+	for(i in domain_data)
+	{
+		var key = domain_data[i];
+		array_data.push({key : key, data : data[key]})
+		var out_min = data[key].out_min;
+		var out_max = data[key].out_max;
+		if(out_min != null)
+			outliers = outliers.concat(out_min);
+		if(out_max != null)
+			outliers = outliers.concat(out_max);
+	}
+
+	this.x_axis.domain(domain_data);
+	var min_data = d3.min(d3.values(data), 
+		function(d){
+			return d.min;
+		});
+	var max_data = d3.max(d3.values(data), 
+		function(d){
+			return d.max;
+		});
+	var min_whisker = d3.min(d3.values(data), 
+		function(d){
+			return d.w1;
+		});
+	var max_whisker = d3.max(d3.values(data), 
+		function(d){
+			return d.w2;
+		});
+	var min_outliers = d3.min(outliers);
+	var max_outliers = d3.max(outliers);
+
+
+	this.y_axis.domain([d3.min([min_data, min_whisker, min_outliers]), d3.max([max_data, max_whisker, max_outliers])]);
+
+  	this.g.append("g")
+    	.attr("class", "axis axis--x")
+      	.attr("transform", "translate(0," + this.height + ")")
+      	.call(d3.axisBottom(this.x_axis));
+
+    this.g.append("g")
+      	.attr("class", "axis axis--y")
+      	.call(d3.axisLeft(this.y_axis).ticks(10))
+
+    this.g.selectAll(".bar_boxplot")
+    	.data(array_data)
+    	.enter()
+    	.append("rect")
+    	.attr("class", "bar_boxplot")
+    	.attr("x", function(d){ return _this.x_axis(d.key)})
+    	.attr("y", function(d){ return _this.y_axis(d.data.q3)})
+    	.attr("width", _this.x_axis.bandwidth())
+    	.attr("height", function(d){ 
+    		var conv = [_this.y_axis(d.data.q3), _this.y_axis(d.data.q1)];
+    		return Math.abs(conv[0] - conv[1]);
+    	})
+
+    this.g.selectAll("line.median")
+    	.data(array_data)
+    	.enter()
+    	.append("line")
+    	.attr("class", "whisker")
+    	.attr("x1", function(d) { return _this.x_axis(d.key);})
+    	.attr("y1", function(d) { return _this.y_axis(d.data.q2);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.q2);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("fill", "none");
+
+	this.g.selectAll("line.whiskers")
+    	.data(array_data)
+    	.enter()
+    	.append("line")
+    	.attr("class", "whisker")
+    	.attr("x1", function(d) { return _this.x_axis(d.key);})
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.w2);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("fill", "none");
+
+    this.g.selectAll("line.whiskers")
+    	.data(array_data)
+    	.enter()
+    	.append("line")
+    	.attr("class", "whisker")
+    	.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.q3);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("stroke-dasharray", "3,3")
+    	.attr("fill", "none");
+
+    this.g.selectAll("line.whiskers")
+    	.data(array_data)
+    	.enter()
+    	.append("line")
+    	.attr("class", "whisker")
+    	.attr("x1", function(d) { return _this.x_axis(d.key);})
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.w1);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("fill", "none");
+
+ 	this.g.selectAll("line.whiskers")
+    	.data(array_data)
+    	.enter()
+    	.append("line")
+    	.attr("class", "whisker")
+    	.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.q1);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("stroke-dasharray", "3,3")
+    	.attr("fill", "none");
+
+
+    for(each in data)
+    {
+    	var outliers = data[each].out_max;
+    	if(outliers != null)
+    	{
+	    	this.g.selectAll("outliers")
+	    		.data(outliers)
+	    		.enter()
+	    		.append("circle")
+	    		.attr("cx", function(d){ return _this.x_axis(each) + (_this.x_axis.bandwidth() / 2);})
+	    		.attr("cy", function(d){ return _this.y_axis(d);})
+	    		.attr("r", 2)	
+	    		.attr("fill", "#555")
+	    		.attr("opacity", .5)
+	    }
+    }
+}
 
 
 module.exports = {
@@ -687,4 +937,6 @@ module.exports = {
 	Breadcrumb : Breadcrumb,
 	DayHourHeatMap : DayHourHeatMap,
 	CardHeatMap : CardHeatMap,
+	SelectionManager : SelectionManager,
+	Boxplot : Boxplot,
 }
