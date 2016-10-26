@@ -931,6 +931,317 @@ Boxplot.prototype.setData = function(data)
     }
 }
 
+//******************************************************
+// Gant Chart
+//******************************************************
+
+var GanttChart = function(params)
+{
+   var w = params.width;
+   var h = params.heigth;
+   var w = params.width;
+   this.bindTo = params.bindto;
+   this.tooltipDiv = params.tooltipDiv;
+   var taskArray = params.data;
+
+   this.svg = d3.selectAll(params.bindto)
+         .append("svg")
+         .attr("width", w)
+         .attr("height", h)
+         .attr("class", "svg");
+
+   this.tooltip_div = d3.select("body").append("div")
+         .attr("class", "tooltip")
+         .style("background", "#DDDDDD")
+         .style("width", "200px")
+         .style("text-align", "left")
+         .style("opacity", 0);
+
+   var dateMin = d3.min(taskArray, function(d) {
+      return new Date(d.startTime);
+   });
+   var dateMax = d3.max(taskArray, function(d) {
+      return new Date(d.endTime);
+   });
+   this.timeScale = d3.scaleTime()
+         .domain([dateMin, dateMax])
+         .range([0,w-150]);
+
+   this.categories = new Array();
+
+   for (var i = 0; i < taskArray.length; i++){
+      this.categories.push(taskArray[i].type);
+   }
+   this.catsUnfiltered = this.categories; //for vert labels
+
+   this.categories = this.checkUnique(this.categories);
+
+   for (var i = 0; i < taskArray.length; i++){
+      this.categories.push(taskArray[i].type);
+   }
+   this.catsUnfiltered = this.categories; //for vert labels
+
+   this.categories = this.checkUnique(this.categories);
+
+   this.makeGant(taskArray, w, h, this.categories);
+   if(params.title){
+      var title = this.svg.append("text")
+            .text(params.title)
+            .attr("x", w/2)
+            .attr("y", 25)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 18)
+            .attr("fill", "#009FFC");
+   }
+
+
+}
+
+GanttChart.prototype.makeGant = function(tasks, pageWidth, pageHeight){
+   var barHeight = 20;
+   var gap = barHeight + 4;
+   var topPadding = 75;
+   var sidePadding = 75;
+   var colorScale = d3.scaleLinear()
+         .domain([0, this.categories.length])
+         .range(["#444444", "#AAAAAA"])
+         .interpolate(d3.interpolateHcl);
+   this.makeGrid(sidePadding, topPadding, pageWidth, pageHeight);
+   this.drawRects(tasks, gap, topPadding, sidePadding, barHeight, colorScale, pageWidth, pageHeight);
+   this.vertLabels(gap, topPadding, sidePadding, barHeight, colorScale);
+}
+
+
+GanttChart.prototype.drawRects = function(theArray, theGap, theTopPad, theSidePad, theBarHeight, theColorScale, w, h){
+
+   _this = this;
+   var categories = this.categories;
+
+   var bigRects = this.svg.append("g")
+         .selectAll("rect")
+         .data(theArray)
+         .enter()
+         .append("rect")
+         .attr("x", 0)
+         .attr("y", function(d, i){
+            return i*theGap + theTopPad - 2;
+         })
+         .attr("width", function(d){
+            return w-theSidePad/2;
+         })
+         .attr("height", theGap)
+         .attr("stroke", "none")
+         .attr("fill", function(d){
+            for (var i = 0; i < _this.categories.length; i++){
+               if (d.type == categories[i]){
+                  return d3.rgb(theColorScale(i));
+               }
+            }
+         })
+         .attr("opacity", 0.4);
+
+   var rectangles = this.svg.append('g')
+         .selectAll("rect")
+         .data(theArray)
+         .enter();
+
+   var timeScale = this.timeScale;
+
+   var innerRects = rectangles.append("rect")
+         .attr("rx", 3)
+         .attr("ry", 3)
+         .attr("x", function(d){
+            return timeScale(new Date(d.startTime)) + theSidePad;
+         })
+         .attr("y", function(d, i){
+            return i*theGap + theTopPad;
+         })
+         .attr("width", function(d){
+            return (timeScale(new Date(d.endTime))-timeScale(new Date(d.startTime)));
+         })
+         .attr("height", theBarHeight)
+         .attr("stroke", "none")
+         .attr("fill", function(d){
+            if(d.task.includes("RESUELTO")){
+               return "#2ca25f";
+            }else if(d.task.includes("ASIGNADO A CAMPO")){
+               return "#3182bd";
+            }else {
+               for (var i = 0; i < _this.categories.length; i++) {
+                  if (d.type == _this.categories[i]) {
+                     return d3.rgb(theColorScale(i));
+                  }
+               }
+            }
+         })
+
+
+   var rectText = rectangles.append("text")
+         .text(function(d){
+            return d.task;
+         })
+         .attr("x", function(d){
+            var startPosition = timeScale(new Date(d.startTime));
+            var endPosition = timeScale(new Date(d.endTime));
+            return ( endPosition-startPosition)/2 + startPosition + theSidePad;
+         })
+         .attr("y", function(d, i){
+            return i*theGap + 14+ theTopPad;
+         })
+         .attr("font-size", 11)
+         .attr("text-anchor", "middle")
+         .attr("text-height", theBarHeight)
+         .attr("fill", "#fff");
+
+   rectText.on('mouseover', function(e) {
+      var tag = "";
+      if (d3.select(this).data()[0].details != undefined){
+         tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+               "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+               "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+               "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>" +
+               "<b>Details:</b> " + d3.select(this).data()[0].details;
+      } else {
+         tag = "Task: " + d3.select(this).data()[0].task + "<br/>" +
+               "Type: " + d3.select(this).data()[0].type + "<br/>" +
+               "Starts: " + d3.select(this).data()[0].startTime + "<br/>" +
+               "Ends: " + d3.select(this).data()[0].endTime;
+      }
+
+      _this.tooltip_div.transition()
+            .duration(200)
+            .style("opacity", .9);
+      _this.tooltip_div.html(tag)
+            .style("left", (d3.event.pageX) + "px")
+            .style("top", (d3.event.pageY + 8) + "px");
+
+
+   }).on('mouseout', function() {
+      //var output = document.getElementById(_this.tooltipDiv);
+      /*var output = document.getElementById("tag");
+       output.style.display = "none";*/
+
+      _this.tooltip_div.transition()
+            .duration(500)
+            .style("opacity", 0);
+
+   });
+
+   innerRects.on('mouseover', function(e) {
+      var tag = "";
+      if (d3.select(this).data()[0].details != undefined){
+         tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+               "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+               "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+               "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>" +
+               "<b>Details:</b> " + d3.select(this).data()[0].details;
+      } else {
+         tag = "Task: " + d3.select(this).data()[0].task + "<br/>" +
+               "Type: " + d3.select(this).data()[0].type + "<br/>" +
+               "Starts: " + d3.select(this).data()[0].startTime + "<br/>" +
+               "Ends: " + d3.select(this).data()[0].endTime;
+      }
+
+      _this.tooltip_div.transition()
+            .duration(200)
+            .style("opacity", .9);
+      _this.tooltip_div.html(tag)
+            .style("left", (d3.event.pageX) + "px")
+            .style("top", (d3.event.pageY + 8) + "px");
+
+
+   }).on('mouseout', function() {
+      _this.tooltip_div.transition()
+            .duration(500)
+            .style("opacity", 0);
+   });
+}
+
+
+GanttChart.prototype.makeGrid = function(theSidePad, theTopPad, w, h){
+
+   var xAxis = d3.axisBottom(this.timeScale);
+   xAxis.tickFormat(d3.timeFormat('%H %M'));
+   xAxis.tickSize(-h+theTopPad+20, 0, 0);
+   xAxis.ticks(8);
+
+   var grid = this.svg.append('g')
+         .attr('class', 'grid')
+         //.attr('transform', 'translate(' +theSidePad + ', ' + (h - 50) + ')')
+         .attr('transform', 'translate(' +theSidePad + ', ' + (h - 50) + ')')
+         //.call(xAxis)//TODO review
+         .call(xAxis)
+         .selectAll("text")
+         .style("text-anchor", "middle")
+         .attr("fill", "#000")
+         .attr("stroke", "none")
+         .attr("font-size", 10)
+         .attr("dy", "1em");//*/
+}
+
+GanttChart.prototype.vertLabels = function(theGap, theTopPad, theSidePad, theBarHeight, theColorScale){
+   var numOccurances = new Array();
+   var prevGap = 0;
+   _this = this;
+   var categories = this.categories;
+
+   for (var i = 0; i < this.categories.length; i++){
+      numOccurances[i] = [this.categories[i], this.getCount(this.categories[i], this.catsUnfiltered)];
+   }
+   var axisText = this.svg.append("g") //without doing this, impossible to put grid lines behind text
+         .selectAll("text")
+         .data(numOccurances)
+         .enter()
+         .append("text")
+         .text(function(d){
+            return d[0];
+         })
+         .attr("x", 10)
+         .attr("y", function(d, i){
+            if (i > 0){
+               for (var j = 0; j < i; j++){
+                  prevGap += numOccurances[i-1][1];
+                  return 0.9*(d[1]*theGap/2 + prevGap*theGap + theTopPad);
+
+               }
+            } else{
+               return d[1]*theGap/2 + theTopPad;
+            }
+         })
+         .attr("font-size", 11)
+         .attr("text-anchor", "start")
+         .attr("text-height", 14)
+         .attr("fill", function(d){
+            for (var i = 0; i < categories.length; i++){
+               if (d[0] == categories[i]){
+                  return d3.rgb(theColorScale(i)).darker();
+               }
+            }
+         });
+
+}
+
+GanttChart.prototype.checkUnique = function(arr){
+   var hash = {}, result = [];
+   for ( var i = 0, l = arr.length; i < l; ++i ) {
+      if ( !hash.hasOwnProperty(arr[i]) ) { //it works with objects! in FF, at least
+         hash[ arr[i] ] = true;
+         result.push(arr[i]);
+      }
+   }
+   return result;
+}
+
+GanttChart.prototype.getCounts = function(arr){
+   var i = arr.length, // var to loop over
+         obj = {}; // obj to store results
+   while (i) obj[arr[--i]] = (obj[arr[i]] || 0) + 1; // count occurrences
+   return obj;
+}
+
+GanttChart.prototype.getCount = function(word, arr){
+   return this.getCounts(arr)[word] || 0;
+}
 
 module.exports = {
 	HierarchicalBarchart : HierarchicalBarchart,
@@ -939,4 +1250,5 @@ module.exports = {
 	CardHeatMap : CardHeatMap,
 	SelectionManager : SelectionManager,
 	Boxplot : Boxplot,
+	GanttChart: GanttChart
 }
