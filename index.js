@@ -550,6 +550,9 @@ CardHeatMap.prototype.setData = function(data)
 
 	_this.gridSize = d3.min([gridWidth, gridHeight]);
 
+	var divHeight = (_this.gridSize * _this.axis.y.length) +  _this.margin.top + _this.margin.bottom;
+
+	this.div.attr("style", "height:"+ divHeight +"px;");
 
 	var cards_group = cards.enter().append("g")
 		.attr("class", "hmdata");
@@ -760,6 +763,7 @@ CardHeatMap.prototype.setData = function(data)
 
 var Boxplot = function(params)
 {
+	//if(params == undefined) return;
 	this.div_id = params.bindto;
 	this.width = 960;
 	this.height = 500;
@@ -770,27 +774,67 @@ var Boxplot = function(params)
 		this.height = params.height ? params.height : 500;
 	}
 	
-	this.margin = {top: 20, right: 20, bottom: 30, left: 40};
+	this.margin = {top: 20, right: 20, bottom: 30, left: 80};
     
 	this.svg = d3.select(this.div_id).append("svg")
+		.attr("class", "boxplot_svg")
     	.attr("width", this.width + this.margin.left + this.margin.right)
 		.attr("height", this.height + this.margin.top + this.margin.bottom)
 	this.g = this.svg.append("g")
 		.attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
 
-    this.x_axis = d3.scaleBand().rangeRound([0, this.width]).padding(0.1);
+
+	this.x_axis = d3.scaleBand().rangeRound([0, this.width]).padding(0.1);
     this.y_axis = d3.scaleLinear().rangeRound([this.height, 0]);
+
+    this.g.append("g")
+    	.attr("class", "axis axis--x")
+      	.attr("transform", "translate(0," + this.height + ")")
+
+    this.g.append("g")
+       	.attr("class", "axis axis--y")
+
+    this.raw_data = null;
+
+
+    this.tooltip_div = d3.select("body").append("div")	
+		.attr("class", "tooltip")				
+		.style("opacity", 0);
+
+	this.transition = d3.transition().duration(3000);
+
+	this.outlier_on = null;
+
+	this.axis = {
+		y : {
+			ticks : 10
+		},
+		x : {}
+	};
 }
+
+
 
 Boxplot.prototype.setData = function(data)
 {
+	//d3.selectAll(".boxplot_svg").remove();
+	// this.svg = d3.select(this.div_id).append("svg")
+	// 	.attr("class", "boxplot_svg")
+ //    	.attr("width", this.width + this.margin.left + this.margin.right)
+	// 	.attr("height", this.height + this.margin.top + this.margin.bottom)
+	// this.g = this.svg.append("g")
+	// 	.attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
+
+
 	var _this = this;
-	var domain_data = Object.keys(data);
+	this.raw_data = data;
+	var domain_data_raw = Object.keys(data);
+	var domain_data = [];
 	var array_data = [];
 	var outliers = [];
-	for(i in domain_data)
+	for(i in domain_data_raw)
 	{
-		var key = domain_data[i];
+		var key = domain_data_raw[i];
 		array_data.push({key : key, data : data[key]})
 		var out_min = data[key].out_min;
 		var out_max = data[key].out_max;
@@ -798,9 +842,24 @@ Boxplot.prototype.setData = function(data)
 			outliers = outliers.concat(out_min);
 		if(out_max != null)
 			outliers = outliers.concat(out_max);
+
+		domain_data.push({
+			key : key,
+			sample : data[key].sample,
+			min : data[key].min,
+			w1 : data[key].w1,
+			q1 : data[key].q1,
+			q2 : data[key].q2,
+			q3 : data[key].q3,
+			w2 : data[key].w2,
+			max : data[key].max,
+		});
 	}
 
-	this.x_axis.domain(domain_data);
+
+
+
+	this.x_axis.domain(domain_data_raw);
 	var min_data = d3.min(d3.values(data), 
 		function(d){
 			return d.min;
@@ -823,21 +882,104 @@ Boxplot.prototype.setData = function(data)
 
 	this.y_axis.domain([d3.min([min_data, min_whisker, min_outliers]), d3.max([max_data, max_whisker, max_outliers])]);
 
-  	this.g.append("g")
-    	.attr("class", "axis axis--x")
-      	.attr("transform", "translate(0," + this.height + ")")
-      	.call(d3.axisBottom(this.x_axis));
+	// this.svg.selectAll(".axis").remove();
+ //  	this.g.append("g")
+ //    	.attr("class", "axis axis--x")
+ //      	.attr("transform", "translate(0," + this.height + ")")
+ //    
+ 	// this.svg.selectAll(".axis--x") 	
+ 	// 	.call(d3.axisBottom(this.x_axis));
 
-    this.g.append("g")
-      	.attr("class", "axis axis--y")
-      	.call(d3.axisLeft(this.y_axis).ticks(10))
+ 	this.g.selectAll(".boxplot_legend_rect").remove();
+ 	var legend_rect = this.g.selectAll(".boxplot_legend_rect")
+ 		.data(domain_data, function(d, i){return i;})
+ 		.enter()
+ 		.append("clipPath")
+ 		.attr("id", function(d,i){ return "boxplot_rect_" + i})
+ 		.attr("class", "boxplot_legend_rect")
+ 		.append("rect")
+ 		.attr("x", function(d, i){ return _this.x_axis(d.key)})
+ 		.attr("y", function(d, i){ return _this.height + 10})
+ 		.attr("width", function(){ return _this.x_axis.bandwidth();})
+ 		.attr("height", 15)
+ 		.attr("opacity", 0)
 
-    this.g.selectAll(".bar_boxplot")
-    	.data(array_data)
-    	.enter()
-    	.append("rect")
-    	.attr("class", "bar_boxplot")
+ 	this.g.selectAll(".axis--x").remove();
+ 	var legend_text = this.g.selectAll("text.axis--x")
+ 		.data(domain_data, function(d, i){ return i;})
+
+ 	legend_text
+ 		.enter()
+ 		.append("text")
+ 		.attr("class", "axis--x")
+ 		.attr("x", function(d, i) { return _this.x_axis(d.key);})
+ 		.attr("y", function(d, i) { return _this.height + 22;})
+ 		.attr("font-size", 10)
+ 		.attr("clip-path", function(d, i) {return "url(#boxplot_rect_" + i + ")"})
+ 		.text(function(d, i){ return d.key})
+
+
+	this.g.selectAll(".boxplot_legend_rect_alpha").remove();
+ 	var legend_rect_alpha = this.g.selectAll(".boxplot_legend_rect_alpha")
+ 		.data(domain_data, function(d, i){return i;})
+ 		.enter()
+ 		.append("rect")
+ 		.attr("class", "boxplot_legend_rect_alpha")
+ 		.attr("x", function(d, i){ return _this.x_axis(d.key)})
+ 		.attr("y", function(d, i){ return _this.height + 10})
+ 		.attr("width", function(){ return _this.x_axis.bandwidth();})
+ 		.attr("height", 15) 
+ 		.attr("fill", "red")
+ 		.attr("opacity", 0)
+ 		.on("mouseover", function(d, i){
+ 			var pos_x = _this.x_axis(d.key);
+ 			var pos_y = _this.height + 10;
+ 			var text = d.key + "<br> sample: "+ d.sample ;
+ 			_this.tooltip_div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            _this.tooltip_div.html(text)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 20) + "px");
+ 		})
+ 		.on("mouseout", function(d,i){
+ 			 _this.tooltip_div.transition()		
+                .duration(500)		
+                .style("opacity", 0);
+ 		})
+
+
+    // this.g.append("g")
+    //   	.attr("class", "axis axis--y")
+    
+
+    
+	this.svg.selectAll(".axis--y")
+      	.call(
+      		d3.axisLeft(this.y_axis)
+      			.tickFormat(function(d){
+      				var formatted = d;
+      				if(_this.axis.y.format)
+      					formatted = _this.axis.y.format(d);
+      				return formatted;
+      			})
+      			.ticks( _this.axis.y.ticks)
+      		)
+
+   
+
+
+    //this.svg.selectAll(".bar_boxplot").remove();
+    var boxes = this.g.selectAll(".bar_boxplot")
+    	.data(array_data, function(d,i){ return i;})
+
+    //Remove data with old elements
+    boxes.exit().remove();
+
+    //Update old elements
+    boxes
     	.attr("x", function(d){ return _this.x_axis(d.key)})
+    	.transition(_this.transition)
     	.attr("y", function(d){ return _this.y_axis(d.data.q3)})
     	.attr("width", _this.x_axis.bandwidth())
     	.attr("height", function(d){ 
@@ -845,90 +987,226 @@ Boxplot.prototype.setData = function(data)
     		return Math.abs(conv[0] - conv[1]);
     	})
 
-    this.g.selectAll("line.median")
-    	.data(array_data)
-    	.enter()
-    	.append("line")
-    	.attr("class", "whisker")
-    	.attr("x1", function(d) { return _this.x_axis(d.key);})
+    boxes.enter()
+    	.append("rect")
+    	.attr("class", "bar_boxplot")
+    	.attr("x", function(d){ return _this.x_axis(d.key)})
+    	.on("mouseover", function(d,i){
+    		console.log(d);
+    	})
+    	.on("mouseout", function(d,i){
+
+    	})
+    	.transition(_this.transition)
+    	.attr("y", function(d){ return _this.y_axis(d.data.q3)})
+    	.attr("width", _this.x_axis.bandwidth())
+    	.attr("height", function(d){ 
+    		var conv = [_this.y_axis(d.data.q3), _this.y_axis(d.data.q1)];
+    		return Math.abs(conv[0] - conv[1]);
+    	})
+
+
+    var line_median = this.g.selectAll("line.median")
+    		.data(array_data, function(d,i){ return i;})
+
+    line_median.exit().remove();
+
+    line_median
+		.attr("x1", function(d) { return _this.x_axis(d.key);})    
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+    	.transition(_this.transition)
     	.attr("y1", function(d) { return _this.y_axis(d.data.q2);})
+		.attr("y2", function(d) { return _this.y_axis(d.data.q2);})
+
+	line_median.enter()
+    	.append("line")
+    	.attr("class", "median")
+    	.attr("x1", function(d) { return _this.x_axis(d.key);})
     	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("fill", "none")
+    	.transition(_this.transition)
+    	.attr("y1", function(d) { return _this.y_axis(d.data.q2);})
     	.attr("y2", function(d) { return _this.y_axis(d.data.q2);})
-    	.attr("stroke", "black")
-    	.attr("stroke-width", 1)
-    	.attr("fill", "none");
 
-	this.g.selectAll("line.whiskers")
-    	.data(array_data)
+
+    var whiskers_top = this.g.selectAll("line.whisker_top")
+    		.data(array_data, function(d,i){ return i;});
+
+    whiskers_top.exit().remove();
+
+    whiskers_top
+    	.attr("x1", function(d) { return _this.x_axis(d.key);})
+		.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+		.transition(_this.transition)
+		.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
+		.attr("y2", function(d) { return _this.y_axis(d.data.w2);})
+
+	whiskers_top
     	.enter()
     	.append("line")
-    	.attr("class", "whisker")
+    	.attr("class", "whisker_top")
     	.attr("x1", function(d) { return _this.x_axis(d.key);})
-    	.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
     	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+		.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("fill", "none")
+    	.transition(_this.transition)
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
     	.attr("y2", function(d) { return _this.y_axis(d.data.w2);})
-    	.attr("stroke", "black")
-    	.attr("stroke-width", 1)
-    	.attr("fill", "none");
 
-    this.g.selectAll("line.whiskers")
-    	.data(array_data)
+    	
+    var whiskers_bottom = this.g.selectAll("line.whisker_bottom")
+    	.data(array_data, function(d,i){ return i;})
+
+    whiskers_bottom.exit().remove();
+
+    whiskers_bottom
+    	.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+		.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+		.transition(_this.transition)
+		.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
+		.attr("y2", function(d) { return _this.y_axis(d.data.q3);})
+
+	whiskers_bottom
     	.enter()
     	.append("line")
-    	.attr("class", "whisker")
+    	.attr("class", "whisker_bottom")
     	.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+    	.attr("stroke", "black")
+    	.attr("stroke-width", 1)
+    	.attr("stroke-dasharray", "3,3")
+    	.attr("fill", "none")
+    	.transition(_this.transition)
     	.attr("y1", function(d) { return _this.y_axis(d.data.w2);})
-    	.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
     	.attr("y2", function(d) { return _this.y_axis(d.data.q3);})
-    	.attr("stroke", "black")
-    	.attr("stroke-width", 1)
-    	.attr("stroke-dasharray", "3,3")
-    	.attr("fill", "none");
+    	
 
-    this.g.selectAll("line.whiskers")
-    	.data(array_data)
+    var whisker_mid_top = this.g.selectAll("line.whisker_mid_top")
+    	.data(array_data, function(d, i){ return i;})
+
+    whisker_mid_top.exit().remove();
+
+    whisker_mid_top
+		.attr("x1", function(d) { return _this.x_axis(d.key);})
+		.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
+		.transition(_this.transition)
+		.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+		.attr("y2", function(d) { return _this.y_axis(d.data.w1);})
+
+    whisker_mid_top
     	.enter()
     	.append("line")
-    	.attr("class", "whisker")
+    	.attr("class", "whisker_mid_top")
     	.attr("x1", function(d) { return _this.x_axis(d.key);})
-    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
     	.attr("x2", function(d) { return _this.x_axis(d.key) + _this.x_axis.bandwidth();})
-    	.attr("y2", function(d) { return _this.y_axis(d.data.w1);})
     	.attr("stroke", "black")
     	.attr("stroke-width", 1)
-    	.attr("fill", "none");
+    	.attr("fill", "none")
+    	.transition(_this.transition)
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.w1);})
+    	
 
- 	this.g.selectAll("line.whiskers")
-    	.data(array_data)
+    var whisker_mid_bottom = this.g.selectAll("line.whisker_mid_bottom")
+    	.data(array_data, function(d, i){ return i;})
+
+    whisker_mid_bottom.exit().remove();
+
+    whisker_mid_bottom
+		.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+		.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
+		.transition(_this.transition)
+		.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+		.attr("y2", function(d) { return _this.y_axis(d.data.q1);})
+
+	whisker_mid_bottom
     	.enter()
     	.append("line")
-    	.attr("class", "whisker")
+    	.attr("class", "whisker_mid_bottom")
     	.attr("x1", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
-    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
     	.attr("x2", function(d) { return _this.x_axis(d.key) + (_this.x_axis.bandwidth() / 2);})
-    	.attr("y2", function(d) { return _this.y_axis(d.data.q1);})
     	.attr("stroke", "black")
     	.attr("stroke-width", 1)
     	.attr("stroke-dasharray", "3,3")
-    	.attr("fill", "none");
+    	.attr("fill", "none")
+		.transition(_this.transition)
+    	.attr("y1", function(d) { return _this.y_axis(d.data.w1);})
+    	.attr("y2", function(d) { return _this.y_axis(d.data.q1);})
+    	
 
 
+
+    var outliers = [];
     for(each in data)
     {
-    	var outliers = data[each].out_max;
-    	if(outliers != null)
+    	var outliers_data = data[each].out_max;
+    	var outliers_indices = data[each].ind_out_max;
+    	for(i in outliers_data)
     	{
-	    	this.g.selectAll("outliers")
-	    		.data(outliers)
-	    		.enter()
-	    		.append("circle")
-	    		.attr("cx", function(d){ return _this.x_axis(each) + (_this.x_axis.bandwidth() / 2);})
-	    		.attr("cy", function(d){ return _this.y_axis(d);})
-	    		.attr("r", 2)	
-	    		.attr("fill", "#555")
-	    		.attr("opacity", .5)
-	    }
+    		outliers.push({
+    			value : outliers_data[i],
+    			column : each,
+    			local_index : outliers_indices[i]
+    		})
+    	}
     }
+
+	this.g.selectAll(".outlier").remove();
+	if(outliers != null)
+	{
+		var outliers_points = this.g.selectAll("circle.outlier")
+    		.data(outliers)
+
+    	outliers_points
+    		.enter()
+    		.append("circle")
+    		.attr("class", "outlier")
+    		.attr("cx", function(d){ return _this.x_axis(d.column) + (_this.x_axis.bandwidth() / 2);})
+    		.attr("r", 4)	
+    		.attr("fill", "#555")
+    		.attr("opacity", .5)
+    		.on("mouseover", function(d, i)
+    		{
+    			var tooltip_x = _this.x_axis(d.column) + (_this.x_axis.bandwidth() / 2);
+    			var tooltip_y = _this.y_axis(d.value);
+    			d3.select(this)
+    				.attr("r", 8);
+
+    			_this.tooltip_div.transition()		
+                	.duration(200)		
+                	.style("opacity", .9);		
+            	_this.tooltip_div.html(d.value)	
+                	.style("left", (d3.event.pageX) + "px")		
+                	.style("top", (d3.event.pageY) + "px");
+
+                if(_this.outlier_on)
+                {
+                	_this.outlier_on.mouseover(d, i);
+                }
+    		})
+    		.on("mouseout", function(d, i)
+    		{
+    			d3.select(this)
+    				.attr("r",4);
+    			_this.g.selectAll("#boxplot_tooltip").remove();
+
+    			 _this.tooltip_div.transition()		
+	                .duration(500)		
+	                .style("opacity", 0);
+
+	            if(_this.outlier_on)
+                {
+                	_this.outlier_on.mouseout(d, i);
+                }
+    		})
+    		.transition(_this.transition)
+    		.attr("cy", function(d){ return _this.y_axis(d.value);})
+    		
+    }
+    
 }
 
 //******************************************************
