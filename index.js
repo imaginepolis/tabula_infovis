@@ -4,7 +4,7 @@
  * @author: Juan Camilo Ibarra
  * @Creation_Date: September 2016
  * @version: 0.1.0
- * @Update_Author : Juan Camilo Ibarra
+ * @Update_Author : Alejandro Triana
  * @Date: September 2016
  */
 
@@ -1209,402 +1209,815 @@ Boxplot.prototype.setData = function(data)
     
 }
 
+
 //******************************************************
 // Gant Chart
 //******************************************************
 
-var GanttChart = function(params)
-{
-	var w = params.width;
-	var h = params.heigth;
-	var w = params.width;
-	this.bindTo = params.bindto;
-	this.tooltipDiv = params.tooltipDiv;
-	var taskArray = params.data;
+var GanttChart = function (params) {
+    var w = params.width;
+    var h = params.heigth;
+    var w = params.width;
+    this.bindTo = params.bindto;
+    this.tooltipDiv = params.tooltipDiv;
+    var taskArray = params.data;
 
-	var triangles;
-	if(params.triangles==undefined){
-		triangles = false;
-	}else{
-		triangles = params.triangles;
-	}
-	console.log(" --> ");
-	console.log(params.triangles);
-	console.log(triangles);
+    //console.log(" ---- params.triangles ----- ");
+    //console.log(params.triangles);
 
-	this.svg = d3.selectAll(params.bindto)
-		.append("svg")
-		.attr("width", w)
-		.attr("height", h)
-		.attr("class", "svg");
+    var triangles;
+    if (params.triangles == undefined) {
+        triangles = false;
+        //console.log(" params.triangles FALSE");
+    } else {
+        triangles = params.triangles;
+        //console.log(" params.triangles TRUE");
+    }
+    /*console.log(" --> ");
+    console.log(params.triangles);
+    console.log(triangles);*/
 
-	this.tooltip_div = d3.select("body").append("div")
-		.attr("class", "tooltip")
-		.style("background", "#DDDDDD")
-		.style("width", "200px")
-		.style("text-align", "left")
-		.style("opacity", 0);
+    this.svg = d3.selectAll(params.bindto)
+        .append("svg")
+        .attr("width", w)
+        .attr("height", h)
+        .attr("class", "svg");
 
-	var dateMin;
-	if(params.minDate){
-		dateMin = new Date(params.minDate);
-	}else{
-		dateMin = d3.min(taskArray, function(d) {
-			return new Date(d.startTime);
-		});
-	}
+    this.tooltip_div = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("background", "#DDDDDD")
+        .style("width", "200px")
+        .style("text-align", "left")
+        .style("opacity", 0);
 
-	var dateMax;
-	if(params.maxDate){
-		dateMax = new Date(params.maxDate);
-	}else{
-		dateMax = d3.max(taskArray, function(d) {
-			return new Date(d.endTime);
-		});
-	}
+    var dateMin;
+    if (params.minDate) {
+        dateMin = new Date(params.minDate);
+    } else {
+        dateMin = d3.min(taskArray, function (d) {
+            return new Date(d.startTime);
+        });
+    }
 
-	this.timeScale = d3.scaleTime()
-		.domain([dateMin, dateMax])
-		//.range([0,w-150]);
-		.range([0,w-100]);
+    if (params.colormap != undefined) {
+        this.colorMap = params.colormap;
+    }
 
-	this.categories = new Array();
+    var dateMax;
+    if (params.maxDate) {
+        dateMax = new Date(params.maxDate);
+    } else {
+        dateMax = d3.max(taskArray, function (d) {
+            return new Date(d.endTime);
+        });
+    }
 
-	for (var i = 0; i < taskArray.length; i++){
-		this.categories.push(taskArray[i].type);
-	}
-	this.catsUnfiltered = this.categories; //for vert labels
+    this.timeScale = d3.scaleTime()
+        .domain([dateMin, dateMax])
+        //.range([0,w-150]);
+        .range([0, w - 100]);
 
-	this.categories = this.checkUnique(this.categories);
+    this.categories = new Array();
 
-	for (var i = 0; i < taskArray.length; i++){
-		this.categories.push(taskArray[i].type);
-	}
-	this.catsUnfiltered = this.categories; //for vert labels
+    for (var i = 0; i < taskArray.length; i++) {
+        this.categories.push(taskArray[i].type);
+    }
+    this.catsUnfiltered = this.categories; //for vert labels
 
-	this.categories = this.checkUnique(this.categories);
+    this.categories = this.checkUnique(this.categories);
 
-	this.makeGant(taskArray, w, h, triangles);
-	if(params.title){
-		var title = this.svg.append("text")
-			.text(params.title)
-			.attr("x", w/2)
-			.attr("y", 25)
-			.attr("text-anchor", "middle")
-			.attr("font-size", 18)
-			.attr("fill", "#009FFC");
-	}
+    for (var i = 0; i < taskArray.length; i++) {
+        this.categories.push(taskArray[i].type);
+    }
+    this.catsUnfiltered = this.categories; //for vert labels
+
+    this.categories = this.checkUnique(this.categories);
+
+    this.makeGant(taskArray, w, h, triangles);
+    if (params.title) {
+        var title = this.svg.append("text")
+            .text(params.title)
+            .attr("x", w / 2)
+            .attr("y", 25)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 18)
+            .attr("fill", "#009FFC");
+    }
 
 
 }
 
-GanttChart.prototype.makeGant = function(tasks, pageWidth, pageHeight, triangles){
-	var barHeight = 20;
-	var gap = barHeight + 4;
-	var topPadding = 75;
-	//var sidePadding = 75;
-	var sidePadding = 150;
-	var colorScale = d3.scaleLinear()
-		.domain([0, this.categories.length])
-		.range(["#444444", "#AAAAAA"])
-		.interpolate(d3.interpolateHcl);
-	this.makeGrid(sidePadding, topPadding, pageWidth, pageHeight);
-	this.drawRects(tasks, gap, topPadding, sidePadding, barHeight, colorScale, pageWidth, pageHeight, triangles);
-	this.vertLabels(gap, topPadding, sidePadding, barHeight, colorScale);
+GanttChart.prototype.makeGant = function (tasks, pageWidth, pageHeight, triangles) {
+    var barHeight = 20;
+    var gap = barHeight + 4;
+    var topPadding = 75;
+    //var sidePadding = 75;
+    var sidePadding = 150;
+    var bgColorScale = d3.scaleLinear()
+        .domain([0, this.categories.length])
+        .range(["#444444", "#AAAAAA"])
+        .interpolate(d3.interpolateHcl);
+    this.makeGrid(sidePadding, topPadding, pageWidth, pageHeight);
+    this.drawRects(tasks, gap, topPadding, sidePadding, barHeight, bgColorScale, pageWidth, pageHeight, triangles);
+    this.vertLabels(gap, topPadding, sidePadding, barHeight, bgColorScale);
 }
 
 
-GanttChart.prototype.drawRects = function(theArray, theGap, theTopPad, theSidePad, theBarHeight, theColorScale, w, h, triangles){
+GanttChart.prototype.drawRects = function (theArray, theGap, theTopPad, theSidePad, theBarHeight, theColorScale, w, h, triangles) {
 
-	_this = this;
-	var categories = this.categories;
+    _this = this;
+    var colorMap = _this.colorMap;
+    var categories = this.categories;
 
-	var flag = true;
-	var bigRects = this.svg.append("g")
-		.selectAll("rect")
-		.data(theArray)
-		.enter()
-		.append("rect")
-		.attr("x", 0)
-		.attr("y", function(d, i){
-			return i*theGap + theTopPad - 2;
-		})
-		.attr("width", function(d){
-			//return w-theSidePad/2;
-			return w+theSidePad/2;
-		})
-		.attr("height", theGap)
-		.attr("stroke", "none")
-		.attr("fill", function(d){
-			/*for (var i = 0; i < _this.categories.length; i++){
-			 if(d.type == categories[i]){
-			 if(flag){
-			 flag = false;
-			 return d3.rgb(theColorScale(0));
-			 }else{
-			 flag = true;
-			 return d3.rgb(theColorScale(_this.categories.length-1));
-			 }
-			 }
-			 }*/
-			for (var i = 0; i < _this.categories.length; i++){
-				//console.log("i : "+i);
-				if (d.type == categories[i]){
-					if(i%2 == 0){
-						return d3.rgb(theColorScale(0));
-					}else{
-						return d3.rgb(theColorScale(_this.categories.length-2));
-					}
-					//return d3.rgb(theColorScale(i));
-				}
-			}
+    var flag = true;
+    var bigRects = this.svg.append("g")
+        .selectAll("rect")
+        .data(theArray)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", function (d, i) {
+            return i * theGap + theTopPad - 2;
+        })
+        .attr("width", function (d) {
+            //return w-theSidePad/2;
+            return w + theSidePad / 2;
+        })
+        .attr("height", theGap)
+        .attr("stroke", "none")
+        .attr("fill", function (d) {
+            /*for (var i = 0; i < _this.categories.length; i++){
+             if(d.type == categories[i]){
+             if(flag){
+             flag = false;
+             return d3.rgb(theColorScale(0));
+             }else{
+             flag = true;
+             return d3.rgb(theColorScale(_this.categories.length-1));
+             }
+             }
+             }*/
+            for (var i = 0; i < _this.categories.length; i++) {
+                //console.log("i : "+i);
+                if (d.type == categories[i]) {
+                    if (i % 2 == 0) {
+                        return d3.rgb(theColorScale(0));
+                    } else {
+                        return d3.rgb(theColorScale(_this.categories.length - 2));
+                    }
+                    //return d3.rgb(theColorScale(i));
+                }
+            }
 
-		})
-		.attr("opacity", 0.4);
+        })
+        .attr("opacity", 0.4);
 
-	var rectangles = this.svg.append('g')
-		.selectAll("rect")
-		.data(theArray)
-		.enter();
+    var rectangles = this.svg.append('g')
+        .selectAll("rect")
+        .data(theArray)
+        .enter();
 
-	var timeScale = this.timeScale;
+    var timeScale = this.timeScale;
 
-	var barScale =1;
+    var barScale = 1;
 
-	//start and final triangles
-	if(triangles==true) {
-		barScale = 0.80;
-		var tth = 0.2 * theBarHeight;//The triangle heigth
-		var startTriangles = this.svg.append("g")
-			.selectAll("polyline")
-			.data(theArray)
-			.enter()
-			.append("polyline")
-			.attr("fill", "black")
-			.attr("stroke", "black")
-			.attr("stroke-width", "1")
-			.attr("points", function (d, i) {
-				var x = timeScale(new Date(d.startTime)) + theSidePad;
-				var y = i * theGap + theTopPad + (0.85 * theBarHeight);
-				return "" + x + "," + y + " " + (x - (tth * 0.7)) + "," + (y + tth) + " " + (x + (tth * 0.7)) + "," + (y + tth) + " " + x + "," + y;
-			});
-		var endTriangles = this.svg.append("g")
-			.selectAll("polyline")
-			.data(theArray)
-			.enter()
-			.append("polyline")
-			.attr("fill", "black")
-			.attr("stroke", "black")
-			.attr("stroke-width", "1")
-			.attr("points", function (d, i) {
-				var x = timeScale(new Date(d.startTime)) + theSidePad + (timeScale(new Date(d.endTime)) - timeScale(new Date(d.startTime)));
-				var y = i * theGap + theTopPad + (0.85 * theBarHeight);
-				return "" + x + "," + y + " " + (x - (tth * 0.7)) + "," + (y + tth) + " " + (x + (tth * 0.7)) + "," + (y + tth) + " " + x + "," + y;
-			});
-	}
+    //start and final triangles
+    //console.log(" ...... triangles ....... ");
+    //console.log(triangles);
 
-	var innerRects = rectangles.append("rect")
-		.attr("rx", 3)
-		.attr("ry", 3)
-		.attr("x", function(d){
-			return timeScale(new Date(d.startTime)) + theSidePad;
-		})
-		.attr("y", function(d, i){
-			return i*theGap + theTopPad;
-		})
-		.attr("width", function(d){
-			return (timeScale(new Date(d.endTime))-timeScale(new Date(d.startTime)));
-		})
-		.attr("height", barScale*theBarHeight)
-		.attr("stroke", "none")
-		.attr("fill", function(d){
-			if(d.task.includes("RESUELTO")){
-				return "#2ca25f";
-			}else if(d.task.includes("ASIGNADO A CAMPO")){
-				return "#3182bd";
-			}else {
-				for (var i = 0; i < _this.categories.length; i++) {
-					if (d.type == _this.categories[i]) {
-						return d3.rgb(theColorScale(i));
-					}
-				}
-			}
-		});
+    if (triangles == true) {
+        barScale = 0.80;
+        var tth = 0.2 * theBarHeight;//The triangle heigth
+        var startTriangles = this.svg.append("g")
+            .selectAll("polyline")
+            .data(theArray)
+            .enter()
+            .append("polyline")
+            .attr("fill", "black")
+            .attr("stroke", "black")
+            .attr("stroke-width", "1")
+            .attr("points", function (d, i) {
+                var x = timeScale(new Date(d.startTime)) + theSidePad;
+                var y = i * theGap + theTopPad + (0.85 * theBarHeight);
+                return "" + x + "," + y + " " + (x - (tth * 0.7)) + "," + (y + tth) + " " + (x + (tth * 0.7)) + "," + (y + tth) + " " + x + "," + y;
+            });
+        var endTriangles = this.svg.append("g")
+            .selectAll("polyline")
+            .data(theArray)
+            .enter()
+            .append("polyline")
+            .attr("fill", "black")
+            .attr("stroke", "black")
+            .attr("stroke-width", "1")
+            .attr("points", function (d, i) {
+                var x = timeScale(new Date(d.startTime)) + theSidePad + (timeScale(new Date(d.endTime)) - timeScale(new Date(d.startTime)));
+                var y = i * theGap + theTopPad + (0.85 * theBarHeight);
+                return "" + x + "," + y + " " + (x - (tth * 0.7)) + "," + (y + tth) + " " + (x + (tth * 0.7)) + "," + (y + tth) + " " + x + "," + y;
+            });
+    }
 
+    var innerRects = rectangles.append("rect")
+        .attr("rx", 3)
+        .attr("ry", 3)
+        .attr("x", function (d) {
+            return timeScale(new Date(d.startTime)) + theSidePad;
+        })
+        .attr("y", function (d, i) {
+            return i * theGap + theTopPad;
+        })
+        .attr("width", function (d) {
+            return (timeScale(new Date(d.endTime)) - timeScale(new Date(d.startTime)));
+        })
+        .attr("height", barScale * theBarHeight)
+        .attr("stroke", "none")
+        .attr("fill", function (d) {
+            console.log(" Trying to color map the gant chart ");
+            console.log(colorMap);
+            if(colorMap != undefined){
+                for(each in colorMap){
+                    if(d.task.includes(colorMap[each].name)){
+                        return colorMap[each].color;
+                    }
+                }
+            }
+            return "#444444";
 
-
-	var rectText = rectangles.append("text")
-		.text(function(d){
-			return d.task;
-		})
-		.attr("x", function(d){
-			var startPosition = timeScale(new Date(d.startTime));
-			var endPosition = timeScale(new Date(d.endTime));
-			return ( endPosition-startPosition)/2 + startPosition + theSidePad;
-		})
-		.attr("y", function(d, i){
-			return i*theGap + 14+ theTopPad;
-		})
-		.attr("font-size", 11)
-		.attr("text-anchor", "middle")
-		.attr("text-height", theBarHeight)
-		.attr("fill", "#fff");
-
-	rectText.on('mouseover', function(e) {
-		var tag = "";
-		if (d3.select(this).data()[0].details != undefined){
-			tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
-				"<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
-				"<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
-				"<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>" +
-				"<b>Details:</b> " + d3.select(this).data()[0].details;
-		} else {
-			tag = "Task: " + d3.select(this).data()[0].task + "<br/>" +
-				"Type: " + d3.select(this).data()[0].type + "<br/>" +
-				"Starts: " + d3.select(this).data()[0].startTime + "<br/>" +
-				"Ends: " + d3.select(this).data()[0].endTime;
-		}
-
-		_this.tooltip_div.transition()
-			.duration(200)
-			.style("opacity", .9);
-		_this.tooltip_div.html(tag)
-			.style("left", (d3.event.pageX) + "px")
-			.style("top", (d3.event.pageY + 8) + "px");
+            /*if (d.task.includes("RESUELTO")) {
+                return "#2ca25f";
+            } else if (d.task.includes("ASIGNADO A CAMPO")) {
+                return "#3182bd";
+            } else {
+                for (var i = 0; i < _this.categories.length; i++) {
+                    if (d.type == _this.categories[i]) {
+                        return d3.rgb(theColorScale(i));
+                    }
+                }
+            }*/
+        });
 
 
-	}).on('mouseout', function() {
-		//var output = document.getElementById(_this.tooltipDiv);
-		/*var output = document.getElementById("tag");
-		 output.style.display = "none";*/
+    var rectText = rectangles.append("text")
+        .text(function (d) {
+            return d.task;
+        })
+        .attr("x", function (d) {
+            var startPosition = timeScale(new Date(d.startTime));
+            var endPosition = timeScale(new Date(d.endTime));
+            return ( endPosition - startPosition) / 2 + startPosition + theSidePad;
+        })
+        .attr("y", function (d, i) {
+            return i * theGap + 14 + theTopPad;
+        })
+        .attr("font-size", 11)
+        .attr("text-anchor", "middle")
+        .attr("text-height", theBarHeight)
+        .attr("fill", "#fff");
 
-		_this.tooltip_div.transition()
-			.duration(500)
-			.style("opacity", 0);
+    rectText.on('mouseover', function (e) {
+        var tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+            "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+            "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+            "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>";
 
-	});
+        if (d3.select(this).data()[0].time != undefined) {
+            tag +=  "<b>Time  :</b> " + d3.select(this).data()[0].time + "<br/>";
+        }
+        if (d3.select(this).data()[0].details != undefined) {
+            tag +=  "<b>Details:</b> " + d3.select(this).data()[0].details;
+        }
 
-	innerRects.on('mouseover', function(e) {
-		var tag = "";
-		if (d3.select(this).data()[0].details != undefined){
-			tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
-				"<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
-				"<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
-				"<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>" +
-				"<b>Details:</b> " + d3.select(this).data()[0].details;
-		} else {
-			tag = "Task: " + d3.select(this).data()[0].task + "<br/>" +
-				"Type: " + d3.select(this).data()[0].type + "<br/>" +
-				"Starts: " + d3.select(this).data()[0].startTime + "<br/>" +
-				"Ends: " + d3.select(this).data()[0].endTime;
-		}
-
-		_this.tooltip_div.transition()
-			.duration(200)
-			.style("opacity", .9);
-		_this.tooltip_div.html(tag)
-			.style("left", (d3.event.pageX) + "px")
-			.style("top", (d3.event.pageY + 8) + "px");
+        _this.tooltip_div.transition()
+            .duration(200)
+            .style("opacity", .9);
+        _this.tooltip_div.html(tag)
+            .style("left", (d3.event.pageX) + "px")
+            .style("top", (d3.event.pageY + 8) + "px");
 
 
-	}).on('mouseout', function() {
-		_this.tooltip_div.transition()
-			.duration(500)
-			.style("opacity", 0);
-	});
+    }).on('mouseout', function () {
+        _this.tooltip_div.transition()
+            .duration(500)
+            .style("opacity", 0);
+    });
+
+    innerRects.on('mouseover', function (e) {
+        var tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+            "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+            "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+            "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>";
+
+        if (d3.select(this).data()[0].time != undefined) {
+            tag +=  "<b>Time  :</b> " + d3.select(this).data()[0].time + "<br/>";
+        }
+        if (d3.select(this).data()[0].details != undefined) {
+            tag +=  "<b>Details:</b> " + d3.select(this).data()[0].details;
+        }
+
+        _this.tooltip_div.transition()
+            .duration(200)
+            .style("opacity", .9);
+        _this.tooltip_div.html(tag)
+            .style("left", (d3.event.pageX) + "px")
+            .style("top", (d3.event.pageY + 8) + "px");
+
+
+    }).on('mouseout', function () {
+        _this.tooltip_div.transition()
+            .duration(500)
+            .style("opacity", 0);
+    });
 }
 
 
-GanttChart.prototype.makeGrid = function(theSidePad, theTopPad, w, h){
-	_this=this;
-	_this.xAxis = d3.axisBottom(_this.timeScale);
-	_this.xAxis.tickFormat(d3.timeFormat('%H %M'));
-	_this.xAxis.tickSize(-h+theTopPad+20, 0, 0);
-	_this.xAxis.ticks(8);
+GanttChart.prototype.makeGrid = function (theSidePad, theTopPad, w, h) {
+    _this = this;
+    _this.xAxis = d3.axisBottom(_this.timeScale);
+    _this.xAxis.tickFormat(d3.timeFormat('%H %M'));
+    _this.xAxis.tickSize(-h + theTopPad + 20, 0, 0);
+    _this.xAxis.ticks(8);
 
-	var grid = this.svg.append('g')
-		.attr('class', 'grid')
-		//.attr('transform', 'translate(' +theSidePad + ', ' + (h - 50) + ')')
-		.attr('transform', 'translate(' +theSidePad + ', ' + (h - 40) + ')')
-		//.call(xAxis)//TODO review
-		.call(_this.xAxis)
-		.selectAll("text")
-		.style("text-anchor", "middle")
-		.attr("fill", "#000")
-		.attr("stroke", "none")
-		.attr("font-size", 10)
-		.attr("dy", "1em");//*/
+    var grid = this.svg.append('g')
+        .attr('class', 'grid')
+        //.attr('transform', 'translate(' +theSidePad + ', ' + (h - 50) + ')')
+        .attr('transform', 'translate(' + theSidePad + ', ' + (h - 40) + ')')
+        //.call(xAxis)//TODO review
+        .call(_this.xAxis)
+        .selectAll("text")
+        .style("text-anchor", "middle")
+        .attr("fill", "#000")
+        .attr("stroke", "none")
+        .attr("font-size", 10)
+        .attr("dy", "1em");//*/
 }
 
-GanttChart.prototype.vertLabels = function(theGap, theTopPad, theSidePad, theBarHeight, theColorScale){
-	var numOccurances = new Array();
-	var prevGap = 0;
-	_this = this;
-	var categories = this.categories;
+GanttChart.prototype.vertLabels = function (theGap, theTopPad, theSidePad, theBarHeight, theColorScale) {
+    var numOccurances = new Array();
+    var prevGap = 0;
+    _this = this;
+    var categories = this.categories;
 
-	for (var i = 0; i < categories.length; i++){
-		numOccurances[i] = [categories[i], this.getCount(categories[i], _this.catsUnfiltered)];
-	}
-	var axisText = this.svg.append("g") //without doing this, impossible to put grid lines behind text
-		.selectAll("text")
-		.data(numOccurances)
-		.enter()
-		.append("text")
-		.text(function(d){
-			return d[0];
-		})
-		.attr("x", 10)
-		.attr("y", function(d, i){
-			if (i > 0){
-				for (var j = 0; j < i; j++){
-					prevGap += numOccurances[i-1][1]-1;
-					return (d[1]*theGap/2 + prevGap*theGap + theTopPad);
+    for (var i = 0; i < categories.length; i++) {
+        numOccurances[i] = [categories[i], this.getCount(categories[i], _this.catsUnfiltered)];
+    }
+    var axisText = this.svg.append("g") //without doing this, impossible to put grid lines behind text
+        .selectAll("text")
+        .data(numOccurances)
+        .enter()
+        .append("text")
+        .text(function (d) {
+            return d[0];
+        })
+        .attr("x", 10)
+        .attr("y", function (d, i) {
+            if (i > 0) {
+                for (var j = 0; j < i; j++) {
+                    prevGap += numOccurances[i - 1][1] - 1;
+                    return (d[1] * theGap / 2 + prevGap * theGap + theTopPad);
 
-				}
-			} else{
-				return d[1]*theGap/2 + theTopPad;
-			}
-		})
-		.attr("font-size", 11)
-		.attr("text-anchor", "start")
-		.attr("text-height", 14)
-		.attr("fill", function(d){
-			for (var i = 0; i < categories.length; i++){
-				if (d[0] == categories[i]){
-					return d3.rgb(theColorScale(i)).darker();
-				}
-			}
-		});
+                }
+            } else {
+                return d[1] * theGap / 2 + theTopPad;
+            }
+        })
+        .attr("font-size", 11)
+        .attr("text-anchor", "start")
+        .attr("text-height", 14)
+        .attr("fill", function (d) {
+            for (var i = 0; i < categories.length; i++) {
+                if (d[0] == categories[i]) {
+                    return d3.rgb(theColorScale(i)).darker();
+                }
+            }
+        });
 }
 
-GanttChart.prototype.checkUnique = function(arr){
-	var hash = {}, result = [];
-	for ( var i = 0, l = arr.length; i < l; ++i ) {
-		if ( !hash.hasOwnProperty(arr[i]) ) { //it works with objects! in FF, at least
-			hash[ arr[i] ] = true;
-			result.push(arr[i]);
-		}
-	}
-	return result;
+GanttChart.prototype.checkUnique = function (arr) {
+    var hash = {}, result = [];
+    for (var i = 0, l = arr.length; i < l; ++i) {
+        if (!hash.hasOwnProperty(arr[i])) { //it works with objects! in FF, at least
+            hash[arr[i]] = true;
+            result.push(arr[i]);
+        }
+    }
+    return result;
 }
 
-GanttChart.prototype.getCounts = function(arr){
-	var i = arr.length, // var to loop over
-		obj = {}; // obj to store results
-	while (i) obj[arr[--i]] = (obj[arr[i]] || 0) + 1; // count occurrences
-	return obj;
+GanttChart.prototype.getCounts = function (arr) {
+    var i = arr.length, // var to loop over
+        obj = {}; // obj to store results
+    while (i) obj[arr[--i]] = (obj[arr[i]] || 0) + 1; // count occurrences
+    return obj;
 }
 
-GanttChart.prototype.getCount = function(word, arr){
-	return this.getCounts(arr)[word] || 0;
+GanttChart.prototype.getCount = function (word, arr) {
+    return this.getCounts(arr)[word] || 0;
 }
+
+
+//******************************************************
+// Life Flow Chart
+//******************************************************
+
+var LifeFlowChart = function (params) {
+    var w = params.width;
+    var h = params.heigth;
+    var w = params.width;
+    this.bindTo = params.bindto;
+    this.tooltipDiv = params.tooltipDiv;
+    var taskArray = params.data;
+
+    var bars;
+    if (params.bars == undefined) {
+        bars = false;
+    } else {
+        bars = params.bars;
+    }
+
+    this.svg = d3.selectAll(params.bindto)
+        .append("svg")
+        .attr("width", w)
+        .attr("height", h)
+        .attr("class", "svg");
+
+    this.tooltip_div = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("background", "#DDDDDD")
+        .style("width", "200px")
+        .style("text-align", "left")
+        .style("opacity", 0);
+
+    var dateMin;
+    if (params.minDate) {
+        dateMin = new Date(params.minDate);
+    } else {
+        dateMin = d3.min(taskArray, function (d) {
+            return new Date(d.startTime);
+        });
+    }
+
+    var dateMax;
+    if (params.maxDate) {
+        dateMax = new Date(params.maxDate);
+    } else {
+        dateMax = d3.max(taskArray, function (d) {
+            return new Date(d.endTime);
+        });
+    }
+
+    this.timeScale = d3.scaleTime()
+        .domain([dateMin, dateMax])
+        //.range([0,w-150]);
+        .range([0, w - 100]);
+
+    this.categories = new Array();
+
+    for (var i = 0; i < taskArray.length; i++) {
+        this.categories.push(taskArray[i].type);
+    }
+    this.catsUnfiltered = this.categories; //for vert labels
+
+    this.categories = this.checkUnique(this.categories);
+
+    for (var i = 0; i < taskArray.length; i++) {
+        this.categories.push(taskArray[i].type);
+    }
+    this.catsUnfiltered = this.categories; //for vert labels
+
+    this.categories = this.checkUnique(this.categories);
+
+    this.makeLifeFlow(taskArray, w, h, bars);
+    if (params.title) {
+        var title = this.svg.append("text")
+            .text(params.title)
+            .attr("x", w / 2)
+            .attr("y", 25)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 18)
+            .attr("fill", "#009FFC");
+    }
+
+
+}
+
+LifeFlowChart.prototype.makeLifeFlow = function (tasks, pageWidth, pageHeight, bars) {
+    var barHeight = 15;
+    var gap = barHeight + 4;
+    var topPadding = 75;
+    //var sidePadding = 75;
+    var sidePadding = 150;
+    var colorScale = d3.scaleLinear()
+        .domain([0, this.categories.length])
+        //.range(["#444444", "#AAAAAA"])
+        .range(["#888888", "#CCCCCC"])
+        .interpolate(d3.interpolateHcl);
+    //this.makeGrid(sidePadding, topPadding, pageWidth, pageHeight);
+    this.drawTriangles(tasks, gap, topPadding, sidePadding, barHeight, colorScale, pageWidth, pageHeight, bars);
+    this.vertLabels(gap, topPadding, sidePadding, barHeight, colorScale);
+}
+
+
+LifeFlowChart.prototype.drawTriangles = function (theArray, theGap, theTopPad, theSidePad, theBarHeight, theColorScale, w, h, bars) {
+
+    _this = this;
+    var categories = this.categories;
+
+    var bigRects = this.svg.append("g")
+        .selectAll("rect")
+        .data(theArray)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", function (d, i) {
+            return 0.8*theGap + theTopPad;
+        })
+        .attr("width", function (d) {
+            //return w-theSidePad/2;
+            return w + theSidePad / 2;
+        })
+        .attr("height", 1.5*theGap)
+        .attr("stroke", "none")
+        .attr("fill", function (d) {
+
+            /*for (var i = 0; i < _this.categories.length; i++) {
+                //console.log("i : "+i);
+                if (d.type == categories[i]) {
+                    if (i % 2 == 0) {
+                        return d3.rgb(theColorScale(0));
+                    } else {
+                        return d3.rgb(theColorScale(_this.categories.length - 2));
+                    }
+                    //return d3.rgb(theColorScale(i));
+                }
+            }*/
+            //return d3.rgb(theColorScale(0));
+            return "#CCCCCC";
+        });
+        //.attr("opacity", 0.4);//*/
+
+
+    var colores_g = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
+
+
+    var timeScale = this.timeScale;
+    var barScale = 1.5;
+
+    if (bars) {
+
+
+        var rectangles = this.svg.append('g')
+            .selectAll("rect")
+            .data(theArray)
+            .enter();
+        var innerRects = rectangles.append("rect")
+            .attr("rx", 0)
+            .attr("ry", 0)
+            .attr("x", function (d) {
+                return timeScale(new Date(d.startTime)) + theSidePad;
+            })
+            .attr("y", function (d, i) {
+                return theGap + theTopPad;
+            })
+            .attr("width", function (d) {
+                return (timeScale(new Date(d.endTime)) - timeScale(new Date(d.startTime)));
+            })
+            .attr("height", barScale * theBarHeight)
+            //.attr("stroke", "none")
+            .attr("stroke", "black")
+            .attr("stroke-width", "1")
+            .attr("fill", function (d, i) {
+                return colores_g[i % colores_g.length];
+            })
+            .attr("fill-opacity", 1.0);
+
+        innerRects.on('mouseover', function (e) {
+            var tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+                "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+                "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+                "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>";
+
+            if (d3.select(this).data()[0].time != undefined) {
+                tag +=  "<b>Time  :</b> " + d3.select(this).data()[0].time + "<br/>";
+            }
+            if (d3.select(this).data()[0].details != undefined) {
+                tag +=  "<b>Details:</b> " + d3.select(this).data()[0].details;
+            }
+
+            _this.tooltip_div.transition()
+                .duration(200)
+                .style("opacity", .9);
+            _this.tooltip_div.html(tag)
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY + 8) + "px");
+
+
+        }).on('mouseout', function () {
+            _this.tooltip_div.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+
+        _this.legend(theBarHeight);
+
+    } else {
+        //start triangles
+        var tth = 1.0 * theBarHeight;//The triangle heigth
+        var startTriangles = this.svg.append("g")
+            .selectAll("polyline")
+            .data(theArray)
+            .enter()
+            .append("polyline")
+            //.attr("fill", "blue")
+            .attr("fill", function (d, i) {
+                return colores_g[i % colores_g.length];
+            })
+            .attr("fill-opacity", 0.7)
+            .attr("stroke", "black")
+            .attr("stroke-width", "1")
+            .attr("points", function (d, i) {
+                var x = timeScale(new Date(d.startTime)) + theSidePad;
+                var y = theGap + theTopPad;// + (0.95 * theBarHeight);
+                return "" + x + "," + y + " " + (x - (tth * 0.5)) + "," + (y + tth) + " " + (x + (tth * 0.5)) + "," + (y + tth) + " " + x + "," + y;
+            });
+
+        startTriangles.on('mouseover', function (e) {
+            var tag = "<b>Task:</b> " + d3.select(this).data()[0].task + "<br/>" +
+                "<b>Type:</b> " + d3.select(this).data()[0].type + "<br/>" +
+                "<b>Starts:</b> " + d3.select(this).data()[0].startTime + "<br/>" +
+                "<b>Ends  :</b> " + d3.select(this).data()[0].endTime + "<br/>";
+
+            if (d3.select(this).data()[0].time != undefined) {
+                   tag +=  "<b>Time  :</b> " + d3.select(this).data()[0].time + "<br/>";
+            }
+            if (d3.select(this).data()[0].details != undefined) {
+                tag +=  "<b>Details:</b> " + d3.select(this).data()[0].details;
+            }
+
+            _this.tooltip_div.transition()
+                .duration(200)
+                .style("opacity", .9);
+            _this.tooltip_div.html(tag)
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY + 8) + "px");
+
+
+        }).on('mouseout', function () {
+            _this.tooltip_div.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+    }
+}
+
+
+LifeFlowChart.prototype.makeGrid = function (theSidePad, theTopPad, w, h) {
+    _this = this;
+    _this.xAxis = d3.axisBottom(_this.timeScale);
+    _this.xAxis.tickFormat(d3.timeFormat('%H %M'));
+    _this.xAxis.tickSize(-h + theTopPad + 20, 0, 0);
+    _this.xAxis.ticks(8);
+
+    var grid = this.svg.append('g')
+        .attr('class', 'grid')
+        //.attr('transform', 'translate(' +theSidePad + ', ' + (h - 50) + ')')
+        .attr('transform', 'translate(' + theSidePad + ', ' + (h - 40) + ')')
+        //.call(xAxis)//TODO review
+        .call(_this.xAxis)
+        .selectAll("text")
+        .style("text-anchor", "middle")
+        .attr("fill", "#000")
+        .attr("stroke", "none")
+        .attr("font-size", 10)
+        .attr("dy", "1em");//*/
+}
+
+LifeFlowChart.prototype.vertLabels = function (theGap, theTopPad, theSidePad, theBarHeight, theColorScale) {
+    var numOccurances = new Array();
+    var prevGap = 0;
+    _this = this;
+    var categories = this.categories;
+
+    for (var i = 0; i < categories.length; i++) {
+        //numOccurances[i] = [categories[i], this.getCount(categories[i], _this.catsUnfiltered)];
+        numOccurances[i] = [categories[i], 1];
+    }
+
+    var axisText = this.svg.append("g") //without doing this, impossible to put grid lines behind text
+        .selectAll("text")
+        .data(numOccurances)
+        .enter()
+        .append("text")
+        .text(function (d) {
+            return d[0];
+        })
+        .attr("x", 10)
+        .attr("y", function (d, i) {
+            return d[1] * (theBarHeight) + (1.1*theBarHeight) + theTopPad;
+            /*if (i > 0) {
+                for (var j = 0; j < i; j++) {
+                    //prevGap += numOccurances[i-1][1]-1;
+                    prevGap += 1;
+                    return (d[1] * theGap / 2 + prevGap * theGap + theTopPad);
+
+                }
+            } else {
+                return d[1] * theGap / 2 + theTopPad;
+            }*/
+        })
+        .attr("font-size", 11)
+        .attr("text-anchor", "start")
+        .attr("text-height", 14)
+        .attr("fill", "black");
+        /*.attr("fill", function (d) {
+            for (var i = 0; i < categories.length; i++) {
+                if (d[0] == categories[i]) {
+                    return d3.rgb(theColorScale(i)).darker();
+                }
+            }
+        });*/
+}
+
+LifeFlowChart.prototype.legend = function (theBarHeight) {
+
+    var colores_g = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
+
+    var theArray=[];
+    theArray.push("Nuevo");
+    theArray.push("Pendiente disponibilidad en patio");
+    theArray.push("Disponible");
+    theArray.push("Asignado a campo");
+    theArray.push("En progreso");
+    theArray.push("Resuelto");
+
+
+    var rectangles = this.svg.append('g')
+        .selectAll("rect")
+        .data(theArray)
+        .enter();
+    var innerRects = rectangles.append("rect")
+        .attr("x", function (d, i) {
+            return 20;
+        })
+        .attr("y", function (d, i) {
+            return i*0.6*theBarHeight;
+        })
+        .attr("width", theBarHeight*1.0)
+        .attr("height", theBarHeight*0.6)
+        .attr("stroke", "black")
+        .attr("stroke-width", "1")
+        .attr("fill", function (d, i) {
+            return colores_g[i % colores_g.length];
+        })
+        .attr("fill-opacity", 1.0);
+
+    var rectText = rectangles.append("text")
+        .text(function (d) {
+            return d;
+        })
+        .attr("x", function (d) {
+            return 40;
+        })
+        .attr("y", function (d, i) {
+            return 0.6*theBarHeight+ i*0.6*theBarHeight;
+        })
+        .attr("font-size", 11)
+        //.attr("text-anchor", "middle")
+        .attr("text-height", 0.6*theBarHeight)
+        .attr("fill", "black");
+
+
+}
+
+LifeFlowChart.prototype.checkUnique = function (arr) {
+    var hash = {}, result = [];
+    for (var i = 0, l = arr.length; i < l; ++i) {
+        if (!hash.hasOwnProperty(arr[i])) { //it works with objects! in FF, at least
+            hash[arr[i]] = true;
+            result.push(arr[i]);
+        }
+    }
+    return result;
+}
+
+LifeFlowChart.prototype.getCounts = function (arr) {
+    var i = arr.length, // var to loop over
+        obj = {}; // obj to store results
+    while (i) obj[arr[--i]] = (obj[arr[i]] || 0) + 1; // count occurrences
+    return obj;
+}
+
+LifeFlowChart.prototype.getCount = function (word, arr) {
+    return this.getCounts(arr)[word] || 0;
+}
+
 
 module.exports = {
-	HierarchicalBarchart : HierarchicalBarchart,
-	Breadcrumb : Breadcrumb,
-	DayHourHeatMap : DayHourHeatMap,
-	CardHeatMap : CardHeatMap,
-	SelectionManager : SelectionManager,
-	Boxplot : Boxplot,
-	GanttChart: GanttChart
+    HierarchicalBarchart: HierarchicalBarchart,
+    Breadcrumb: Breadcrumb,
+    DayHourHeatMap: DayHourHeatMap,
+    CardHeatMap: CardHeatMap,
+    SelectionManager: SelectionManager,
+    Boxplot: Boxplot,
+    GanttChart: GanttChart,
+    LifeFlowChart: LifeFlowChart,
 }
+
